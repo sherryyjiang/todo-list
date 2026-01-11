@@ -1,0 +1,74 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Sidebar } from "./sidebar";
+
+// Mock data for initial development - will be replaced with Convex queries
+const MOCK_WORK_CATEGORIES = [
+  { id: "1", name: "Meetings" },
+  { id: "2", name: "Projects" },
+  { id: "3", name: "Admin" },
+];
+
+const MOCK_LIFE_CATEGORIES = [
+  { id: "4", name: "Health" },
+  { id: "5", name: "Finance" },
+  { id: "6", name: "Home" },
+  { id: "7", name: "Personal" },
+];
+
+interface MainLayoutProps {
+  children: React.ReactNode;
+}
+
+export function MainLayout({ children }: MainLayoutProps) {
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [reminderCount] = useState(3); // Mock count
+  const [isClient, setIsClient] = useState(false);
+
+  // Hydration fix
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const handleAddCategory = (type: "work" | "life") => {
+    // TODO: Open add category modal
+    console.log("Add category:", type);
+  };
+
+  const handleOpenReminders = () => {
+    // TODO: Open reminders panel/modal
+    console.log("Open reminders");
+  };
+
+  const handleOpenWeeklyReview = () => {
+    // TODO: Open weekly review modal
+    console.log("Open weekly review");
+  };
+
+  if (!isClient) {
+    return null; // Prevent hydration mismatch
+  }
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      <Sidebar
+        reminderCount={reminderCount}
+        workCategories={MOCK_WORK_CATEGORIES}
+        lifeCategories={MOCK_LIFE_CATEGORIES}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        onAddCategory={handleAddCategory}
+        onOpenReminders={handleOpenReminders}
+        onOpenWeeklyReview={handleOpenWeeklyReview}
+      />
+
+      <main className="flex-1 overflow-hidden bg-[var(--color-bg-main)]">
+        {children}
+      </main>
+    </div>
+  );
+}
+
+
+
