@@ -51,11 +51,11 @@ export function AIInputBar({ onCreateTask }: AIInputBarProps) {
   // Simple client-side parser (placeholder for Gemini)
   const simpleParseTask = (text: string): ParsedTask => {
     const lowerText = text.toLowerCase();
-    
+
     // Extract tags (words starting with #)
     const tagMatches = text.match(/#\w+/g) ?? [];
     const tags = tagMatches.map((t) => t.slice(1));
-    
+
     // Remove tags from title
     let title = text;
     for (const tag of tagMatches) {
@@ -90,7 +90,7 @@ export function AIInputBar({ onCreateTask }: AIInputBarProps) {
     // Parse dates
     let scheduledDate: string | null = null;
     const today = new Date();
-    
+
     if (lowerText.includes("today")) {
       scheduledDate = today.toISOString().split("T")[0];
       title = title.replace(/today/i, "").trim();
@@ -128,7 +128,7 @@ export function AIInputBar({ onCreateTask }: AIInputBarProps) {
     // Infer category from context
     const workKeywords = ["meeting", "client", "project", "work", "review", "code", "design"];
     const lifeKeywords = ["gym", "doctor", "grocery", "home", "personal", "family"];
-    
+
     const isWork = workKeywords.some((k) => lowerText.includes(k));
     const isLife = lifeKeywords.some((k) => lowerText.includes(k));
 
@@ -201,97 +201,89 @@ export function AIInputBar({ onCreateTask }: AIInputBarProps) {
   };
 
   return (
-    <div className="relative px-4 pt-4 lg:pt-6">
-      {/* Input field */}
-      <div className="relative">
-        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-          {isLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin text-[var(--color-primary)]" />
-          ) : (
-            <Sparkles className="ai-indicator h-5 w-5 text-[var(--color-primary)]" />
-          )}
-        </div>
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder='Add task: "Review budget tomorrow at 2pm for 1 hour #finance"'
-          className="input w-full py-3 pl-12 pr-4 text-body"
-        />
-      </div>
-
+    <div className="relative w-full max-w-3xl mx-auto px-4 pb-6">
       {/* Preview card */}
       {showPreview && parsedTask && (
-        <div className="absolute left-4 right-4 top-full z-10 mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-card)] p-4 shadow-lg">
-          <div className="mb-3 flex items-start justify-between">
-            <h3 className="text-heading text-[var(--color-text-primary)]">{parsedTask.title}</h3>
+        <div className="absolute left-4 right-4 bottom-full z-20 mb-4 rounded-2xl glass p-5 shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="mb-4 flex items-start justify-between">
+            <div>
+              <h3 className="text-heading font-bold text-[var(--color-text-primary)]">{parsedTask.title}</h3>
+              <p className="text-caption text-[var(--color-text-muted)] mt-0.5">Ready to schedule</p>
+            </div>
             <button
               onClick={() => setShowPreview(false)}
-              className="rounded p-1 text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)]"
+              className="rounded-full p-1.5 text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="space-y-2 text-body text-[var(--color-text-secondary)]">
+          <div className="grid grid-cols-2 gap-3 text-body text-[var(--color-text-secondary)]">
             {parsedTask.scheduledDate && (
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-[var(--color-text-muted)]" />
-                <span>{formatDate(parsedTask.scheduledDate)}</span>
-                {parsedTask.scheduledTime && <span>at {parsedTask.scheduledTime}</span>}
+              <div className="flex items-center gap-2.5 bg-white/40 dark:bg-black/20 rounded-xl px-3 py-2">
+                <Calendar className="h-4 w-4 text-[var(--color-primary)]" />
+                <span className="font-medium">{formatDate(parsedTask.scheduledDate)}</span>
+                {parsedTask.scheduledTime && <span className="text-[var(--color-text-muted)]">at {parsedTask.scheduledTime}</span>}
               </div>
             )}
 
             {parsedTask.estimatedMinutes && (
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-[var(--color-text-muted)]" />
-                <span>{formatTime(parsedTask.estimatedMinutes)}</span>
+              <div className="flex items-center gap-2.5 bg-white/40 dark:bg-black/20 rounded-xl px-3 py-2">
+                <Clock className="h-4 w-4 text-[var(--color-secondary)]" />
+                <span className="font-medium">{formatTime(parsedTask.estimatedMinutes)}</span>
               </div>
             )}
 
             {parsedTask.tags.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5 bg-white/40 dark:bg-black/20 rounded-xl px-3 py-2 col-span-2">
                 <Tag className="h-4 w-4 text-[var(--color-text-muted)]" />
-                <div className="flex gap-1">
+                <div className="flex flex-wrap gap-1.5">
                   {parsedTask.tags.map((tag) => (
-                    <span key={tag} className="tag">
+                    <span key={tag} className="tag tag-work text-[10px] py-0.5">
                       #{tag}
                     </span>
                   ))}
                 </div>
               </div>
             )}
-
-            {parsedTask.category && (
-              <div className="flex items-center gap-2">
-                <div
-                  className={cn(
-                    "h-2 w-2 rounded-full",
-                    parsedTask.category === "work"
-                      ? "bg-[var(--color-work)]"
-                      : "bg-[var(--color-life)]"
-                  )}
-                />
-                <span className="capitalize">{parsedTask.category}</span>
-              </div>
-            )}
           </div>
 
-          <div className="mt-4 flex gap-2">
-            <button onClick={handleConfirm} className="btn btn-primary flex-1">
+          <div className="mt-5 flex gap-3">
+            <button onClick={handleConfirm} className="btn grad-primary flex-1 shadow-lg shadow-[var(--color-primary)]/20 py-2.5">
               <Check className="h-4 w-4" />
-              Confirm
+              Confirm Task
             </button>
             <button
               onClick={() => setShowPreview(false)}
-              className="btn btn-secondary"
+              className="btn btn-secondary py-2.5"
             >
               Edit
             </button>
           </div>
         </div>
       )}
+
+      {/* Input field */}
+      <div className="relative group">
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] rounded-2xl opacity-20 blur group-focus-within:opacity-40 transition duration-500"></div>
+        <div className="relative glass rounded-2xl shadow-xl overflow-hidden">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-5">
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-[var(--color-primary)]" />
+            ) : (
+              <Sparkles className="ai-indicator h-5 w-5 text-[var(--color-primary)]" />
+            )}
+          </div>
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder='Add task: "Review budget tomorrow at 2pm for 1 hour #finance"'
+            className="w-full bg-transparent border-none py-4 pl-14 pr-6 text-body focus:ring-0 placeholder:text-[var(--color-text-muted)]"
+          />
+        </div>
+      </div>
     </div>
   );
 }

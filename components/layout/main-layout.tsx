@@ -63,8 +63,16 @@ export function MainLayout({ children }: MainLayoutProps) {
         onOpenWeeklyReview={handleOpenWeeklyReview}
       />
 
-      <main className="flex-1 overflow-hidden bg-[var(--color-bg-main)]">
-        {children}
+      <main className="relative flex-1 overflow-hidden bg-[var(--color-bg-main)]">
+        {/* Subtle background details */}
+        <div className="absolute inset-0 pointer-events-none opacity-40 dark:opacity-20">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--color-primary)] blur-[120px] opacity-20" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--color-secondary)] blur-[120px] opacity-20" />
+        </div>
+
+        <div className="relative h-full">
+          {children}
+        </div>
       </main>
     </div>
   );
