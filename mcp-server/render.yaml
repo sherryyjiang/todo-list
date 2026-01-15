@@ -1,0 +1,17 @@
+# Render.com deployment configuration
+# Deploy with: connect your GitHub repo to Render
+
+services:
+  - type: web
+    name: todo-list-mcp
+    runtime: node
+    region: oregon
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:http
+    envVars:
+      - key: CONVEX_HTTP_URL
+        sync: false # You'll need to set this in Render dashboard
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health

@@ -1,0 +1,30 @@
+{
+  "name": "todo-list-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Todo List app - supports stdio and HTTP/SSE transport",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "todo-list-mcp": "./dist/index.js",
+    "todo-list-mcp-http": "./dist/http-server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "start:http": "node dist/http-server.js",
+    "dev": "tsx src/index.ts",
+    "dev:http": "tsx src/http-server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "convex": "^1.31.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "tsx": "^4.7.0",
+    "typescript": "^5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
