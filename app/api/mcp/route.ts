@@ -11,6 +11,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import type { ServerResponse } from "node:http";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL?.replace('.cloud', '.site') 
   || process.env.CONVEX_HTTP_URL;
@@ -313,9 +314,9 @@ export async function GET() {
         emit: () => false,
         end: () => controller.close(),
         flushHeaders: () => {},
-      };
+      } as unknown as ServerResponse;
 
-      const transport = new SSEServerTransport("/api/mcp/message", mockRes as any);
+      const transport = new SSEServerTransport("/api/mcp/message", mockRes);
       const sessionId = crypto.randomUUID();
       transports.set(sessionId, transport);
       

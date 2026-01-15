@@ -15,6 +15,16 @@ if (!CONVEX_URL) {
   process.exit(1);
 }
 
+type TaskStatus = "today" | "tomorrow" | "this_week" | "next_week" | "backlog";
+
+interface Task {
+  _id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  isCompleted: boolean;
+}
+
 const server = new Server(
   {
     name: "todo-list-mcp",
@@ -124,14 +134,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const response = await fetch(`${CONVEX_URL}/tasks`);
         const tasks = await response.json();
 
-        const typedArgs = args as { status?: string };
-        let filteredTasks = tasks;
+        const typedArgs = args as { status?: TaskStatus };
+        let filteredTasks = tasks as Task[];
         if (typedArgs?.status) {
-          filteredTasks = tasks.filter((t: any) => t.status === typedArgs.status);
+          filteredTasks = filteredTasks.filter((task) => task.status === typedArgs.status);
         }
 
         // Group by status for display
-        const grouped: Record<string, any[]> = {
+        const grouped: Record<TaskStatus, Task[]> = {
           today: [],
           tomorrow: [],
           this_week: [],
@@ -140,9 +150,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
 
         for (const task of filteredTasks) {
-          if (grouped[task.status]) {
-            grouped[task.status].push(task);
-          }
+          grouped[task.status].push(task);
         }
 
         let result = "";

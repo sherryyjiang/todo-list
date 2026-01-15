@@ -1,8 +1,28 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import { z } from "zod";
 
 const http = httpRouter();
+
+const taskStatusSchema = z.enum(["today", "tomorrow", "this_week", "next_week", "backlog"]);
+
+function createErrorResponse(message: string, status = 400) {
+  return new Response(JSON.stringify({ error: message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function parseBody<T>(request: Request, schema: z.ZodSchema<T>) {
+  const body = await request.json();
+  return schema.safeParse(body);
+}
+
+function asTaskId(id: string) {
+  return id as Id<"tasks">;
+}
 
 // List all tasks
 http.route({
@@ -21,16 +41,18 @@ http.route({
   path: "/tasks",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
-    const body = await request.json();
-    const { title, description } = body as { title: string; description?: string };
-
-    if (!title) {
-      return new Response(JSON.stringify({ error: "Title is required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    const parsed = await parseBody(
+      request,
+      z.object({
+        title: z.string().min(1, "Title is required"),
+        description: z.string().optional(),
+      })
+    );
+    if (!parsed.success) {
+      return createErrorResponse("Invalid request body");
     }
 
+    const { title, description } = parsed.data;
     const id = await ctx.runMutation(api.tasks.create, { title, description });
     return new Response(JSON.stringify({ id, success: true }), {
       headers: { "Content-Type": "application/json" },
@@ -43,20 +65,21 @@ http.route({
   path: "/tasks/status",
   method: "PUT",
   handler: httpAction(async (ctx, request) => {
-    const body = await request.json();
-    const { id, status } = body as { id: string; status: string };
-
-    const validStatuses = ["today", "tomorrow", "this_week", "next_week", "backlog"];
-    if (!validStatuses.includes(status)) {
-      return new Response(JSON.stringify({ error: "Invalid status" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      });
+    const parsed = await parseBody(
+      request,
+      z.object({
+        id: z.string().min(1),
+        status: taskStatusSchema,
+      })
+    );
+    if (!parsed.success) {
+      return createErrorResponse("Invalid request body");
     }
 
+    const { id, status } = parsed.data;
     await ctx.runMutation(api.tasks.updateStatus, {
-      id: id as any,
-      status: status as any
+      id: asTaskId(id),
+      status,
     });
     return new Response(JSON.stringify({ success: true }), {
       headers: { "Content-Type": "application/json" },
@@ -69,10 +92,18 @@ http.route({
   path: "/tasks/complete",
   method: "PUT",
   handler: httpAction(async (ctx, request) => {
-    const body = await request.json();
-    const { id } = body as { id: string };
+    const parsed = await parseBody(
+      request,
+      z.object({
+        id: z.string().min(1),
+      })
+    );
+    if (!parsed.success) {
+      return createErrorResponse("Invalid request body");
+    }
 
-    await ctx.runMutation(api.tasks.toggleComplete, { id: id as any });
+    const { id } = parsed.data;
+    await ctx.runMutation(api.tasks.toggleComplete, { id: asTaskId(id) });
     return new Response(JSON.stringify({ success: true }), {
       headers: { "Content-Type": "application/json" },
     });
@@ -84,10 +115,18 @@ http.route({
   path: "/tasks",
   method: "DELETE",
   handler: httpAction(async (ctx, request) => {
-    const body = await request.json();
-    const { id } = body as { id: string };
+    const parsed = await parseBody(
+      request,
+      z.object({
+        id: z.string().min(1),
+      })
+    );
+    if (!parsed.success) {
+      return createErrorResponse("Invalid request body");
+    }
 
-    await ctx.runMutation(api.tasks.remove, { id: id as any });
+    const { id } = parsed.data;
+    await ctx.runMutation(api.tasks.remove, { id: asTaskId(id) });
     return new Response(JSON.stringify({ success: true }), {
       headers: { "Content-Type": "application/json" },
     });

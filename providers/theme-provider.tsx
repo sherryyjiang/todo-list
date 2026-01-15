@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  ReactNode,
+} from "react";
 
 type Theme = "light" | "dark" | "system";
 
@@ -18,51 +25,28 @@ interface ThemeProviderProps {
 }
 
 export function ThemeProvider({ children, defaultTheme = "light" }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(defaultTheme);
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-
-  useEffect(() => {
-    // Check for stored preference
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return defaultTheme;
     const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored) {
-      setTheme(stored);
-    }
-  }, []);
+    return stored ?? defaultTheme;
+  });
+  const systemTheme = useSyncExternalStore<"light" | "dark">(
+    subscribeSystemTheme,
+    getSystemTheme,
+    () => "light"
+  );
+  const resolvedTheme: "light" | "dark" = theme === "system" ? systemTheme : theme;
 
   useEffect(() => {
     const root = document.documentElement;
-    
-    const resolveTheme = (): "light" | "dark" => {
-      if (theme === "system") {
-        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      }
-      return theme;
-    };
-
-    const resolved = resolveTheme();
-    setResolvedTheme(resolved);
 
     // Update DOM
     root.classList.remove("light", "dark");
-    root.classList.add(resolved);
+    root.classList.add(resolvedTheme);
     
     // Store preference
     localStorage.setItem("theme", theme);
-
-    // Listen for system changes
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => {
-      if (theme === "system") {
-        const newResolved = mediaQuery.matches ? "dark" : "light";
-        setResolvedTheme(newResolved);
-        root.classList.remove("light", "dark");
-        root.classList.add(newResolved);
-      }
-    };
-
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, [theme]);
+  }, [resolvedTheme, theme]);
 
   return (
     <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
@@ -77,6 +61,17 @@ export function useTheme() {
     throw new Error("useTheme must be used within a ThemeProvider");
   }
   return context;
+}
+
+function getSystemTheme(): "light" | "dark" {
+  if (typeof window === "undefined") return "light";
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function subscribeSystemTheme(callback: () => void) {
+  const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+  mediaQuery.addEventListener("change", callback);
+  return () => mediaQuery.removeEventListener("change", callback);
 }
 
 
