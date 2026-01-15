@@ -204,6 +204,12 @@ function createMCPServer(): Server {
 
           const result = await response.json();
           if (result.success) {
+            await fetch(`${CONVEX_URL}/tasks/status`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ id: result.id, status: "backlog" }),
+            });
+
             return {
               content: [
                 {
