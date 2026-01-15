@@ -12,6 +12,10 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { ServerResponse } from "node:http";
+import { deleteTransport, setTransport } from "@/lib/mcp/transports";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL?.replace('.cloud', '.site') 
   || process.env.CONVEX_HTTP_URL;
@@ -290,9 +294,6 @@ function createMCPServer(): Server {
   return server;
 }
 
-// Store transports by session
-const transports = new Map<string, SSEServerTransport>();
-
 // SSE endpoint - GET /api/mcp
 export async function GET() {
   const server = createMCPServer();
@@ -317,8 +318,9 @@ export async function GET() {
       } as unknown as ServerResponse;
 
       const transport = new SSEServerTransport("/api/mcp/message", mockRes);
-      const sessionId = crypto.randomUUID();
-      transports.set(sessionId, transport);
+      const sessionId = transport.sessionId;
+      setTransport(sessionId, transport);
+      transport.onclose = () => deleteTransport(sessionId);
       
       await server.connect(transport);
     },
