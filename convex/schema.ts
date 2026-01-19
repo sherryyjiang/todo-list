@@ -11,7 +11,9 @@ export default defineSchema({
       v.literal("tomorrow"),
       v.literal("this_week"),
       v.literal("next_week"),
-      v.literal("backlog")
+      v.literal("backlog"),
+      v.literal("long_term"),
+      v.literal("archived")
     ),
     isCompleted: v.boolean(),
     order: v.number(),

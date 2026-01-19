@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { Task, TaskStatus, SECTIONS } from "@/types";
+import { Task, TaskStatus, ActiveTaskStatus, SECTIONS, LONG_TERM_SECTION, ALL_SECTIONS } from "@/types";
 import {
   ChevronDown,
   ChevronRight,
@@ -11,6 +11,8 @@ import {
   GripVertical,
   Plus,
   Trash2,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import {
   DndContext,
@@ -57,10 +59,13 @@ function TodoApp() {
   const updateStatus = useMutation(api.tasks.updateStatus);
   const updateDescription = useMutation(api.tasks.updateDescription);
   const removeTask = useMutation(api.tasks.remove);
+  const archiveTask = useMutation(api.tasks.archive);
+  const unarchiveTask = useMutation(api.tasks.unarchive);
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<TaskStatus>>(new Set());
+  const [showArchived, setShowArchived] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const taskById = useMemo(() => {
@@ -92,6 +97,14 @@ function TodoApp() {
 
   const handleDescriptionChange = async (taskId: string, description: string) => {
     await updateDescription({ id: taskId as Task["_id"], description });
+  };
+
+  const handleArchive = async (taskId: string) => {
+    await archiveTask({ id: taskId as Task["_id"] });
+  };
+
+  const handleUnarchive = async (taskId: string, status: ActiveTaskStatus) => {
+    await unarchiveTask({ id: taskId as Task["_id"], status });
   };
 
   const toggleSection = (sectionId: TaskStatus) => {
@@ -170,9 +183,63 @@ function TodoApp() {
                   onDelete={handleDelete}
                   onStatusChange={handleStatusChange}
                   onDescriptionChange={handleDescriptionChange}
+                  onArchive={handleArchive}
                 />
               );
             })}
+          </div>
+
+          {/* Long Term Section */}
+          <div className="mt-8">
+            <TaskSection
+              section={LONG_TERM_SECTION}
+              sectionTasks={getTasksForSection("long_term")}
+              isCollapsed={collapsedSections.has("long_term")}
+              completedCount={getTasksForSection("long_term").filter((t) => t.isCompleted).length}
+              expandedTask={expandedTask}
+              onToggleSection={() => toggleSection("long_term")}
+              onToggleExpand={(taskId) =>
+                setExpandedTask(expandedTask === taskId ? null : taskId)
+              }
+              onToggleComplete={handleToggleComplete}
+              onDelete={handleDelete}
+              onStatusChange={handleStatusChange}
+              onDescriptionChange={handleDescriptionChange}
+              onArchive={handleArchive}
+              isLongTerm
+            />
+          </div>
+
+          {/* Archived Section Toggle */}
+          <div className="mt-8 border-t border-[var(--color-border)] pt-6">
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              <Archive size={18} />
+              <span className="text-body">
+                {showArchived ? "Hide Archived" : "Show Archived"}
+              </span>
+              <span className="text-caption">
+                ({getTasksForSection("archived").length})
+              </span>
+            </button>
+
+            {showArchived && (
+              <div className="mt-4">
+                <ArchivedSection
+                  tasks={getTasksForSection("archived")}
+                  expandedTask={expandedTask}
+                  onToggleExpand={(taskId) =>
+                    setExpandedTask(expandedTask === taskId ? null : taskId)
+                  }
+                  onToggleComplete={handleToggleComplete}
+                  onDelete={handleDelete}
+                  onUnarchive={handleUnarchive}
+                  onDescriptionChange={handleDescriptionChange}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -188,6 +255,7 @@ function TaskItem({
   onDelete,
   onStatusChange,
   onDescriptionChange,
+  onArchive,
 }: TaskItemProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task._id,
@@ -252,12 +320,23 @@ function TaskItem({
           onChange={(e) => onStatusChange(e.target.value as TaskStatus)}
           className="input py-1 text-caption"
         >
-          {SECTIONS.map((s) => (
+          {ALL_SECTIONS.map((s) => (
             <option key={s.id} value={s.id}>
               {s.label}
             </option>
           ))}
         </select>
+
+        {/* Archive button - only show for completed tasks */}
+        {task.isCompleted && onArchive && (
+          <button
+            onClick={onArchive}
+            className="btn-ghost rounded p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+            title="Archive task"
+          >
+            <Archive size={16} />
+          </button>
+        )}
 
         {/* Delete */}
         <button
@@ -297,6 +376,8 @@ function TaskSection({
   onDelete,
   onStatusChange,
   onDescriptionChange,
+  onArchive,
+  isLongTerm,
 }: TaskSectionProps) {
   const sectionDropId = getSectionDropId(section.id);
   const { isOver, setNodeRef } = useDroppable({ id: sectionDropId });
@@ -304,7 +385,9 @@ function TaskSection({
   return (
     <div
       ref={setNodeRef}
-      className={`card p-4 transition ${isOver ? "ring-2 ring-[var(--color-primary)]/40" : ""}`}
+      className={`card p-4 transition ${isOver ? "ring-2 ring-[var(--color-primary)]/40" : ""} ${
+        isLongTerm ? "border-dashed border-[var(--color-border)]" : ""
+      }`}
     >
       <button onClick={onToggleSection} className="flex w-full items-center gap-2 text-left">
         {isCollapsed ? (
@@ -313,7 +396,12 @@ function TaskSection({
           <ChevronDown size={18} className="text-[var(--color-text-muted)]" />
         )}
         <h2 className="text-heading text-[var(--color-text-primary)]">{section.label}</h2>
-        <span className="text-caption text-[var(--color-text-muted)]">
+        {isLongTerm && (
+          <span className="text-caption text-[var(--color-text-muted)] italic">
+            — important reminders for later
+          </span>
+        )}
+        <span className="text-caption text-[var(--color-text-muted)] ml-auto">
           {completedCount}/{sectionTasks.length}
         </span>
       </button>
@@ -321,7 +409,9 @@ function TaskSection({
       {!isCollapsed && (
         <div className="mt-4 space-y-2">
           {sectionTasks.length === 0 ? (
-            <p className="text-body text-[var(--color-text-muted)] py-2">No tasks</p>
+            <p className="text-body text-[var(--color-text-muted)] py-2">
+              {isLongTerm ? "No long term items" : "No tasks"}
+            </p>
           ) : (
             sectionTasks.map((task) => (
               <TaskItem
@@ -333,6 +423,7 @@ function TaskSection({
                 onDelete={() => onDelete(task._id)}
                 onStatusChange={(status) => onStatusChange(task._id, status)}
                 onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
+                onArchive={() => onArchive(task._id)}
               />
             ))
           )}
@@ -358,6 +449,158 @@ function getStatusFromOver(
   return overTask ? overTask.status : null;
 }
 
+function ArchivedSection({
+  tasks,
+  expandedTask,
+  onToggleExpand,
+  onToggleComplete,
+  onDelete,
+  onUnarchive,
+  onDescriptionChange,
+}: ArchivedSectionProps) {
+  const [unarchiveStatus, setUnarchiveStatus] = useState<Record<string, ActiveTaskStatus>>({});
+
+  if (tasks.length === 0) {
+    return (
+      <div className="card p-4">
+        <p className="text-body text-[var(--color-text-muted)]">No archived tasks</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card p-4">
+      <h2 className="text-heading text-[var(--color-text-primary)] mb-4">Archived</h2>
+      <div className="space-y-2">
+        {tasks.map((task) => (
+          <ArchivedTaskItem
+            key={task._id}
+            task={task}
+            isExpanded={expandedTask === task._id}
+            onToggleExpand={() => onToggleExpand(task._id)}
+            onToggleComplete={() => onToggleComplete(task._id)}
+            onDelete={() => onDelete(task._id)}
+            unarchiveStatus={unarchiveStatus[task._id] || "backlog"}
+            onUnarchiveStatusChange={(status) =>
+              setUnarchiveStatus((prev) => ({ ...prev, [task._id]: status }))
+            }
+            onUnarchive={() => onUnarchive(task._id, unarchiveStatus[task._id] || "backlog")}
+            onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ArchivedTaskItem({
+  task,
+  isExpanded,
+  onToggleExpand,
+  onToggleComplete,
+  onDelete,
+  unarchiveStatus,
+  onUnarchiveStatusChange,
+  onUnarchive,
+  onDescriptionChange,
+}: {
+  task: Task;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onToggleComplete: () => void;
+  onDelete: () => void;
+  unarchiveStatus: ActiveTaskStatus;
+  onUnarchiveStatusChange: (status: ActiveTaskStatus) => void;
+  onUnarchive: () => void;
+  onDescriptionChange: (description: string) => void;
+}) {
+  const [description, setDescription] = useState(task.description || "");
+
+  const handleDescriptionBlur = () => {
+    if (description !== (task.description || "")) {
+      onDescriptionChange(description);
+    }
+  };
+
+  return (
+    <div
+      className={`rounded-lg border border-[var(--color-border)] p-3 transition-all ${
+        task.isCompleted ? "bg-[var(--color-bg-hover)] opacity-60" : "bg-[var(--color-bg-card)]"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        {/* Checkbox */}
+        <button
+          onClick={onToggleComplete}
+          className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
+            task.isCompleted
+              ? "border-[var(--color-success)] bg-[var(--color-success)]"
+              : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
+          }`}
+        >
+          {task.isCompleted && <Check size={14} className="text-white" />}
+        </button>
+
+        {/* Title */}
+        <button
+          onClick={onToggleExpand}
+          className={`flex-1 text-left text-body ${
+            task.isCompleted
+              ? "text-[var(--color-text-muted)] line-through"
+              : "text-[var(--color-text-primary)]"
+          }`}
+        >
+          {task.title}
+        </button>
+
+        {/* Restore dropdown */}
+        <select
+          value={unarchiveStatus}
+          onChange={(e) => onUnarchiveStatusChange(e.target.value as ActiveTaskStatus)}
+          className="input py-1 text-caption"
+        >
+          {ALL_SECTIONS.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+
+        {/* Restore button */}
+        <button
+          onClick={onUnarchive}
+          className="btn-ghost rounded p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+          title="Restore task"
+        >
+          <ArchiveRestore size={16} />
+        </button>
+
+        {/* Delete */}
+        <button
+          onClick={onDelete}
+          className="btn-ghost rounded p-1 text-[var(--color-text-muted)] hover:text-[var(--color-urgent)]"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+
+      {/* Expanded Description */}
+      {isExpanded && (
+        <div className="mt-3 pl-8">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleDescriptionBlur}
+            placeholder="Add a description..."
+            className="input w-full resize-none text-body"
+            rows={2}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface TaskItemProps {
   task: Task;
   isExpanded: boolean;
@@ -366,10 +609,11 @@ interface TaskItemProps {
   onDelete: () => void;
   onStatusChange: (status: TaskStatus) => void;
   onDescriptionChange: (description: string) => void;
+  onArchive?: () => void;
 }
 
 interface TaskSectionProps {
-  section: (typeof SECTIONS)[number];
+  section: { id: TaskStatus; label: string };
   sectionTasks: Task[];
   isCollapsed: boolean;
   completedCount: number;
@@ -379,5 +623,17 @@ interface TaskSectionProps {
   onToggleComplete: (taskId: Task["_id"]) => void;
   onDelete: (taskId: Task["_id"]) => void;
   onStatusChange: (taskId: Task["_id"], status: TaskStatus) => void;
+  onDescriptionChange: (taskId: Task["_id"], description: string) => void;
+  onArchive: (taskId: Task["_id"]) => void;
+  isLongTerm?: boolean;
+}
+
+interface ArchivedSectionProps {
+  tasks: Task[];
+  expandedTask: string | null;
+  onToggleExpand: (taskId: Task["_id"]) => void;
+  onToggleComplete: (taskId: Task["_id"]) => void;
+  onDelete: (taskId: Task["_id"]) => void;
+  onUnarchive: (taskId: Task["_id"], status: ActiveTaskStatus) => void;
   onDescriptionChange: (taskId: Task["_id"], description: string) => void;
 }

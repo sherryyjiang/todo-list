@@ -44,7 +44,33 @@ export const updateStatus = mutation({
       v.literal("tomorrow"),
       v.literal("this_week"),
       v.literal("next_week"),
-      v.literal("backlog")
+      v.literal("backlog"),
+      v.literal("long_term"),
+      v.literal("archived")
+    ),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { status: args.status });
+  },
+});
+
+export const archive = mutation({
+  args: { id: v.id("tasks") },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { status: "archived" });
+  },
+});
+
+export const unarchive = mutation({
+  args: {
+    id: v.id("tasks"),
+    status: v.union(
+      v.literal("today"),
+      v.literal("tomorrow"),
+      v.literal("this_week"),
+      v.literal("next_week"),
+      v.literal("backlog"),
+      v.literal("long_term")
     ),
   },
   handler: async (ctx, args) => {
