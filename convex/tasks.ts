@@ -123,6 +123,16 @@ export const updateDescription = mutation({
   },
 });
 
+export const updateTitle = mutation({
+  args: {
+    id: v.id("tasks"),
+    title: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { title: args.title });
+  },
+});
+
 export const toggleComplete = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {

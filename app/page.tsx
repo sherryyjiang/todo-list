@@ -13,6 +13,7 @@ import {
   Trash2,
   Archive,
   ArchiveRestore,
+  Pencil,
 } from "lucide-react";
 import {
   DndContext,
@@ -59,6 +60,7 @@ function TodoApp() {
   const toggleComplete = useMutation(api.tasks.toggleComplete);
   const updateStatus = useMutation(api.tasks.updateStatus);
   const updateDescription = useMutation(api.tasks.updateDescription);
+  const updateTitle = useMutation(api.tasks.updateTitle);
   const removeTask = useMutation(api.tasks.remove);
   const archiveTask = useMutation(api.tasks.archive);
   const unarchiveTask = useMutation(api.tasks.unarchive);
@@ -136,6 +138,10 @@ function TodoApp() {
 
   const handleDescriptionChange = async (taskId: string, description: string) => {
     await updateDescription({ id: taskId as Task["_id"], description });
+  };
+
+  const handleTitleChange = async (taskId: string, title: string) => {
+    await updateTitle({ id: taskId as Task["_id"], title });
   };
 
   const handleArchive = async (taskId: string) => {
@@ -222,6 +228,7 @@ function TodoApp() {
                   onDelete={handleDelete}
                   onStatusChange={handleStatusChange}
                   onDescriptionChange={handleDescriptionChange}
+                  onTitleChange={handleTitleChange}
                   onArchive={handleArchive}
                 />
               );
@@ -244,6 +251,7 @@ function TodoApp() {
               onDelete={handleDelete}
               onStatusChange={handleStatusChange}
               onDescriptionChange={handleDescriptionChange}
+              onTitleChange={handleTitleChange}
               onArchive={handleArchive}
               isLongTerm
             />
@@ -276,6 +284,7 @@ function TodoApp() {
                   onDelete={handleDelete}
                   onUnarchive={handleUnarchive}
                   onDescriptionChange={handleDescriptionChange}
+                  onTitleChange={handleTitleChange}
                 />
               </div>
             )}
@@ -294,6 +303,7 @@ function TaskItem({
   onDelete,
   onStatusChange,
   onDescriptionChange,
+  onTitleChange,
   onArchive,
 }: TaskItemProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -304,10 +314,45 @@ function TaskItem({
     opacity: isDragging ? 0.6 : 1,
   };
   const [description, setDescription] = useState(task.description || "");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(task.title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  // Sync edited title with task title when it changes externally
+  useEffect(() => {
+    setEditedTitle(task.title);
+  }, [task.title]);
 
   const handleDescriptionBlur = () => {
     if (description !== (task.description || "")) {
       onDescriptionChange(description);
+    }
+  };
+
+  const handleTitleSave = () => {
+    const trimmed = editedTitle.trim();
+    if (trimmed && trimmed !== task.title) {
+      onTitleChange(trimmed);
+    } else {
+      setEditedTitle(task.title);
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleTitleSave();
+    } else if (e.key === "Escape") {
+      setEditedTitle(task.title);
+      setIsEditingTitle(false);
     }
   };
 
@@ -341,17 +386,40 @@ function TaskItem({
           {task.isCompleted && <Check size={14} className="text-white" />}
         </button>
 
-        {/* Title */}
-        <button
-          onClick={onToggleExpand}
-          className={`flex-1 text-left text-body ${
-            task.isCompleted
-              ? "text-[var(--color-text-muted)] line-through"
-              : "text-[var(--color-text-primary)]"
-          }`}
-        >
-          {task.title}
-        </button>
+        {/* Title - Editable */}
+        {isEditingTitle ? (
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            onBlur={handleTitleSave}
+            onKeyDown={handleTitleKeyDown}
+            className="input flex-1 py-0 text-body"
+          />
+        ) : (
+          <button
+            onClick={onToggleExpand}
+            className={`flex-1 text-left text-body ${
+              task.isCompleted
+                ? "text-[var(--color-text-muted)] line-through"
+                : "text-[var(--color-text-primary)]"
+            }`}
+          >
+            {task.title}
+          </button>
+        )}
+
+        {/* Edit button */}
+        {!isEditingTitle && (
+          <button
+            onClick={() => setIsEditingTitle(true)}
+            className="btn-ghost rounded p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+            title="Edit title"
+          >
+            <Pencil size={16} />
+          </button>
+        )}
 
         {/* Status Dropdown */}
         <select
@@ -415,6 +483,7 @@ function TaskSection({
   onDelete,
   onStatusChange,
   onDescriptionChange,
+  onTitleChange,
   onArchive,
   isLongTerm,
 }: TaskSectionProps) {
@@ -462,6 +531,7 @@ function TaskSection({
                 onDelete={() => onDelete(task._id)}
                 onStatusChange={(status) => onStatusChange(task._id, status)}
                 onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
+                onTitleChange={(title) => onTitleChange(task._id, title)}
                 onArchive={() => onArchive(task._id)}
               />
             ))
@@ -496,6 +566,7 @@ function ArchivedSection({
   onDelete,
   onUnarchive,
   onDescriptionChange,
+  onTitleChange,
 }: ArchivedSectionProps) {
   const [unarchiveStatus, setUnarchiveStatus] = useState<Record<string, ActiveTaskStatus>>({});
 
@@ -525,6 +596,7 @@ function ArchivedSection({
             }
             onUnarchive={() => onUnarchive(task._id, unarchiveStatus[task._id] || "backlog")}
             onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
+            onTitleChange={(title) => onTitleChange(task._id, title)}
           />
         ))}
       </div>
@@ -542,6 +614,7 @@ function ArchivedTaskItem({
   onUnarchiveStatusChange,
   onUnarchive,
   onDescriptionChange,
+  onTitleChange,
 }: {
   task: Task;
   isExpanded: boolean;
@@ -552,12 +625,48 @@ function ArchivedTaskItem({
   onUnarchiveStatusChange: (status: ActiveTaskStatus) => void;
   onUnarchive: () => void;
   onDescriptionChange: (description: string) => void;
+  onTitleChange: (title: string) => void;
 }) {
   const [description, setDescription] = useState(task.description || "");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(task.title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus input when editing starts
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  // Sync edited title with task title when it changes externally
+  useEffect(() => {
+    setEditedTitle(task.title);
+  }, [task.title]);
 
   const handleDescriptionBlur = () => {
     if (description !== (task.description || "")) {
       onDescriptionChange(description);
+    }
+  };
+
+  const handleTitleSave = () => {
+    const trimmed = editedTitle.trim();
+    if (trimmed && trimmed !== task.title) {
+      onTitleChange(trimmed);
+    } else {
+      setEditedTitle(task.title);
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleTitleSave();
+    } else if (e.key === "Escape") {
+      setEditedTitle(task.title);
+      setIsEditingTitle(false);
     }
   };
 
@@ -580,17 +689,40 @@ function ArchivedTaskItem({
           {task.isCompleted && <Check size={14} className="text-white" />}
         </button>
 
-        {/* Title */}
-        <button
-          onClick={onToggleExpand}
-          className={`flex-1 text-left text-body ${
-            task.isCompleted
-              ? "text-[var(--color-text-muted)] line-through"
-              : "text-[var(--color-text-primary)]"
-          }`}
-        >
-          {task.title}
-        </button>
+        {/* Title - Editable */}
+        {isEditingTitle ? (
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={editedTitle}
+            onChange={(e) => setEditedTitle(e.target.value)}
+            onBlur={handleTitleSave}
+            onKeyDown={handleTitleKeyDown}
+            className="input flex-1 py-0 text-body"
+          />
+        ) : (
+          <button
+            onClick={onToggleExpand}
+            className={`flex-1 text-left text-body ${
+              task.isCompleted
+                ? "text-[var(--color-text-muted)] line-through"
+                : "text-[var(--color-text-primary)]"
+            }`}
+          >
+            {task.title}
+          </button>
+        )}
+
+        {/* Edit button */}
+        {!isEditingTitle && (
+          <button
+            onClick={() => setIsEditingTitle(true)}
+            className="btn-ghost rounded p-1 text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+            title="Edit title"
+          >
+            <Pencil size={16} />
+          </button>
+        )}
 
         {/* Restore dropdown */}
         <select
@@ -648,6 +780,7 @@ interface TaskItemProps {
   onDelete: () => void;
   onStatusChange: (status: TaskStatus) => void;
   onDescriptionChange: (description: string) => void;
+  onTitleChange: (title: string) => void;
   onArchive?: () => void;
 }
 
@@ -663,6 +796,7 @@ interface TaskSectionProps {
   onDelete: (taskId: Task["_id"]) => void;
   onStatusChange: (taskId: Task["_id"], status: TaskStatus) => void;
   onDescriptionChange: (taskId: Task["_id"], description: string) => void;
+  onTitleChange: (taskId: Task["_id"], title: string) => void;
   onArchive: (taskId: Task["_id"]) => void;
   isLongTerm?: boolean;
 }
@@ -675,4 +809,5 @@ interface ArchivedSectionProps {
   onDelete: (taskId: Task["_id"]) => void;
   onUnarchive: (taskId: Task["_id"], status: ActiveTaskStatus) => void;
   onDescriptionChange: (taskId: Task["_id"], description: string) => void;
+  onTitleChange: (taskId: Task["_id"], title: string) => void;
 }
