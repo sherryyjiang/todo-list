@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Task, TaskStatus, ActiveTaskStatus, SECTIONS, LONG_TERM_SECTION, ALL_SECTIONS } from "@/types";
@@ -55,6 +55,7 @@ export default function Home() {
 function TodoApp() {
   const tasks = useQuery(api.tasks.list) as Task[] | undefined;
   const createTask = useMutation(api.tasks.create);
+  const createTaskWithStatus = useMutation(api.tasks.createWithStatus);
   const toggleComplete = useMutation(api.tasks.toggleComplete);
   const updateStatus = useMutation(api.tasks.updateStatus);
   const updateDescription = useMutation(api.tasks.updateDescription);
@@ -67,6 +68,44 @@ function TodoApp() {
   const [collapsedSections, setCollapsedSections] = useState<Set<TaskStatus>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  // Track if we've already created a "Clear backlog" task this session
+  const clearBacklogCreatedRef = useRef(false);
+
+  const CLEAR_BACKLOG_TITLE = "Clear backlog";
+  const BACKLOG_THRESHOLD = 7;
+
+  // Auto-create "Clear backlog" task when backlog has more than 7 items
+  useEffect(() => {
+    if (!tasks) return;
+
+    const backlogTasks = tasks.filter((t) => t.status === "backlog" && !t.isCompleted);
+    const todayTasks = tasks.filter((t) => t.status === "today");
+
+    // Check if "Clear backlog" already exists in today's tasks
+    const clearBacklogExists = todayTasks.some(
+      (t) => t.title === CLEAR_BACKLOG_TITLE && !t.isCompleted
+    );
+
+    // If backlog has more than 7 items and no "Clear backlog" task exists in today
+    if (
+      backlogTasks.length > BACKLOG_THRESHOLD &&
+      !clearBacklogExists &&
+      !clearBacklogCreatedRef.current
+    ) {
+      clearBacklogCreatedRef.current = true;
+      createTaskWithStatus({
+        title: CLEAR_BACKLOG_TITLE,
+        description: `You have ${backlogTasks.length} items in your backlog. Time to prioritize and clear some out!`,
+        status: "today",
+      });
+    }
+
+    // Reset the ref if backlog drops to 7 or below, so it can trigger again later
+    if (backlogTasks.length <= BACKLOG_THRESHOLD) {
+      clearBacklogCreatedRef.current = false;
+    }
+  }, [tasks, createTaskWithStatus]);
 
   const taskById = useMemo(() => {
     const map = new Map<string, Task>();

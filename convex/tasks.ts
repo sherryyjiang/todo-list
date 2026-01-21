@@ -36,6 +36,41 @@ export const create = mutation({
   },
 });
 
+export const createWithStatus = mutation({
+  args: {
+    title: v.string(),
+    description: v.optional(v.string()),
+    status: v.union(
+      v.literal("today"),
+      v.literal("tomorrow"),
+      v.literal("this_week"),
+      v.literal("next_week"),
+      v.literal("backlog"),
+      v.literal("long_term")
+    ),
+  },
+  handler: async (ctx, args) => {
+    const existingTasks = await ctx.db
+      .query("tasks")
+      .withIndex("by_status", (q) => q.eq("status", args.status))
+      .collect();
+
+    const maxOrder = existingTasks.reduce(
+      (max, task) => Math.max(max, task.order),
+      0
+    );
+
+    return await ctx.db.insert("tasks", {
+      title: args.title,
+      description: args.description,
+      status: args.status,
+      isCompleted: false,
+      order: maxOrder + 1,
+      createdAt: Date.now(),
+    });
+  },
+});
+
 export const updateStatus = mutation({
   args: {
     id: v.id("tasks"),
