@@ -443,6 +443,17 @@
     background: var(--color-primary-subtle);
     border: 2px dashed var(--color-primary);
   }
+
+  /* Drag and drop animations */
+  .dragging {
+    cursor: grabbing !important;
+  }
+
+  /* Smooth drag overlay */
+  [data-dnd-kit-drag-overlay] {
+    pointer-events: none;
+    z-index: 999;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════

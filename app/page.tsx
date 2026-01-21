@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Task, TaskStatus, ActiveTaskStatus, SECTIONS, LONG_TERM_SECTION, ALL_SECTIONS } from "@/types";
@@ -17,12 +17,14 @@ import {
 } from "lucide-react";
 import {
   DndContext,
+  DragOverlay,
   PointerSensor,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -69,7 +71,8 @@ function TodoApp() {
   const [expandedTask, setExpandedTask] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<TaskStatus>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   // Track if we've already created a "Clear backlog" task this session
   const clearBacklogCreatedRef = useRef(false);
@@ -117,42 +120,42 @@ function TodoApp() {
     return map;
   }, [tasks]);
 
-  const handleAddTask = async (e: React.FormEvent) => {
+  const handleAddTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
     await createTask({ title: newTaskTitle.trim() });
     setNewTaskTitle("");
-  };
+  }, [newTaskTitle, createTask]);
 
-  const handleToggleComplete = async (taskId: string) => {
-    await toggleComplete({ id: taskId as Task["_id"] });
-  };
+  const handleToggleComplete = useCallback((taskId: string) => {
+    toggleComplete({ id: taskId as Task["_id"] });
+  }, [toggleComplete]);
 
-  const handleDelete = async (taskId: string) => {
-    await removeTask({ id: taskId as Task["_id"] });
-  };
+  const handleDelete = useCallback((taskId: string) => {
+    removeTask({ id: taskId as Task["_id"] });
+  }, [removeTask]);
 
-  const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
-    await updateStatus({ id: taskId as Task["_id"], status: newStatus });
-  };
+  const handleStatusChange = useCallback((taskId: string, newStatus: TaskStatus) => {
+    updateStatus({ id: taskId as Task["_id"], status: newStatus });
+  }, [updateStatus]);
 
-  const handleDescriptionChange = async (taskId: string, description: string) => {
-    await updateDescription({ id: taskId as Task["_id"], description });
-  };
+  const handleDescriptionChange = useCallback((taskId: string, description: string) => {
+    updateDescription({ id: taskId as Task["_id"], description });
+  }, [updateDescription]);
 
-  const handleTitleChange = async (taskId: string, title: string) => {
-    await updateTitle({ id: taskId as Task["_id"], title });
-  };
+  const handleTitleChange = useCallback((taskId: string, title: string) => {
+    updateTitle({ id: taskId as Task["_id"], title });
+  }, [updateTitle]);
 
-  const handleArchive = async (taskId: string) => {
-    await archiveTask({ id: taskId as Task["_id"] });
-  };
+  const handleArchive = useCallback((taskId: string) => {
+    archiveTask({ id: taskId as Task["_id"] });
+  }, [archiveTask]);
 
-  const handleUnarchive = async (taskId: string, status: ActiveTaskStatus) => {
-    await unarchiveTask({ id: taskId as Task["_id"], status });
-  };
+  const handleUnarchive = useCallback((taskId: string, status: ActiveTaskStatus) => {
+    unarchiveTask({ id: taskId as Task["_id"], status });
+  }, [unarchiveTask]);
 
-  const toggleSection = (sectionId: TaskStatus) => {
+  const toggleSection = useCallback((sectionId: TaskStatus) => {
     setCollapsedSections((prev) => {
       const next = new Set(prev);
       if (next.has(sectionId)) {
@@ -162,15 +165,37 @@ function TodoApp() {
       }
       return next;
     });
-  };
+  }, []);
 
-  const getTasksForSection = (status: TaskStatus) => {
-    if (!tasks) return [];
-    return tasks.filter((task) => task.status === status);
-  };
+  const handleToggleExpand = useCallback((taskId: string) => {
+    setExpandedTask((prev) => prev === taskId ? null : taskId);
+  }, []);
 
-  function handleDragEnd(event: DragEndEvent) {
+  // Memoize tasks by section to avoid filtering on every render
+  const tasksBySection = useMemo(() => {
+    const map: Record<TaskStatus, Task[]> = {
+      today: [],
+      tomorrow: [],
+      this_week: [],
+      next_week: [],
+      backlog: [],
+      long_term: [],
+      archived: [],
+    };
+    tasks?.forEach((task) => {
+      map[task.status].push(task);
+    });
+    return map;
+  }, [tasks]);
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveId(null);
+    
     if (!over) return;
 
     const activeTask = taskById.get(String(active.id));
@@ -180,10 +205,21 @@ function TodoApp() {
     if (!nextStatus || nextStatus === activeTask.status) return;
 
     updateStatus({ id: activeTask._id, status: nextStatus });
-  }
+  }, [taskById, updateStatus]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveId(null);
+  }, []);
+
+  const activeTask = activeId ? taskById.get(activeId) : null;
 
   return (
-    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext 
+      sensors={sensors} 
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
       <div className="min-h-screen bg-[var(--color-bg-main)] p-4 md:p-8">
         <div className="mx-auto max-w-2xl">
           <h1 className="text-display mb-8 text-[var(--color-text-primary)]">Todo List</h1>
@@ -207,46 +243,36 @@ function TodoApp() {
 
           {/* Task Sections */}
           <div className="space-y-6">
-            {SECTIONS.map((section) => {
-              const sectionTasks = getTasksForSection(section.id);
-              const isCollapsed = collapsedSections.has(section.id);
-              const completedCount = sectionTasks.filter((t) => t.isCompleted).length;
-
-              return (
-                <TaskSection
-                  key={section.id}
-                  section={section}
-                  sectionTasks={sectionTasks}
-                  isCollapsed={isCollapsed}
-                  completedCount={completedCount}
-                  expandedTask={expandedTask}
-                  onToggleSection={() => toggleSection(section.id)}
-                  onToggleExpand={(taskId) =>
-                    setExpandedTask(expandedTask === taskId ? null : taskId)
-                  }
-                  onToggleComplete={handleToggleComplete}
-                  onDelete={handleDelete}
-                  onStatusChange={handleStatusChange}
-                  onDescriptionChange={handleDescriptionChange}
-                  onTitleChange={handleTitleChange}
-                  onArchive={handleArchive}
-                />
-              );
-            })}
+            {SECTIONS.map((section) => (
+              <TaskSection
+                key={section.id}
+                section={section}
+                sectionTasks={tasksBySection[section.id]}
+                isCollapsed={collapsedSections.has(section.id)}
+                expandedTask={expandedTask}
+                activeId={activeId}
+                onToggleSection={toggleSection}
+                onToggleExpand={handleToggleExpand}
+                onToggleComplete={handleToggleComplete}
+                onDelete={handleDelete}
+                onStatusChange={handleStatusChange}
+                onDescriptionChange={handleDescriptionChange}
+                onTitleChange={handleTitleChange}
+                onArchive={handleArchive}
+              />
+            ))}
           </div>
 
           {/* Long Term Section */}
           <div className="mt-8">
             <TaskSection
               section={LONG_TERM_SECTION}
-              sectionTasks={getTasksForSection("long_term")}
+              sectionTasks={tasksBySection.long_term}
               isCollapsed={collapsedSections.has("long_term")}
-              completedCount={getTasksForSection("long_term").filter((t) => t.isCompleted).length}
               expandedTask={expandedTask}
-              onToggleSection={() => toggleSection("long_term")}
-              onToggleExpand={(taskId) =>
-                setExpandedTask(expandedTask === taskId ? null : taskId)
-              }
+              activeId={activeId}
+              onToggleSection={toggleSection}
+              onToggleExpand={handleToggleExpand}
               onToggleComplete={handleToggleComplete}
               onDelete={handleDelete}
               onStatusChange={handleStatusChange}
@@ -268,18 +294,16 @@ function TodoApp() {
                 {showArchived ? "Hide Archived" : "Show Archived"}
               </span>
               <span className="text-caption">
-                ({getTasksForSection("archived").length})
+                ({tasksBySection.archived.length})
               </span>
             </button>
 
             {showArchived && (
               <div className="mt-4">
                 <ArchivedSection
-                  tasks={getTasksForSection("archived")}
+                  tasks={tasksBySection.archived}
                   expandedTask={expandedTask}
-                  onToggleExpand={(taskId) =>
-                    setExpandedTask(expandedTask === taskId ? null : taskId)
-                  }
+                  onToggleExpand={handleToggleExpand}
                   onToggleComplete={handleToggleComplete}
                   onDelete={handleDelete}
                   onUnarchive={handleUnarchive}
@@ -291,13 +315,63 @@ function TodoApp() {
           </div>
         </div>
       </div>
+
+      {/* Drag Overlay - renders floating preview */}
+      <DragOverlay dropAnimation={{
+        duration: 200,
+        easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+      }}>
+        {activeTask ? (
+          <DragPreview task={activeTask} />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }
 
-function TaskItem({
+// Floating drag preview component
+const DragPreview = memo(function DragPreview({ task }: { task: Task }) {
+  return (
+    <div
+      className="rounded-lg border-2 border-[var(--color-primary)] bg-[var(--color-bg-card)] p-3 shadow-lg"
+      style={{
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15), 0 0 0 2px var(--color-primary)',
+        transform: 'rotate(2deg) scale(1.02)',
+        width: '100%',
+        maxWidth: '500px',
+      }}
+    >
+      <div className="flex items-center gap-3">
+        <div className="text-[var(--color-primary)]">
+          <GripVertical size={16} />
+        </div>
+        <div
+          className={`flex h-5 w-5 items-center justify-center rounded border ${
+            task.isCompleted
+              ? "border-[var(--color-success)] bg-[var(--color-success)]"
+              : "border-[var(--color-border)]"
+          }`}
+        >
+          {task.isCompleted && <Check size={14} className="text-white" />}
+        </div>
+        <span
+          className={`flex-1 text-body font-medium ${
+            task.isCompleted
+              ? "text-[var(--color-text-muted)] line-through"
+              : "text-[var(--color-text-primary)]"
+          }`}
+        >
+          {task.title}
+        </span>
+      </div>
+    </div>
+  );
+});
+
+const TaskItem = memo(function TaskItem({
   task,
   isExpanded,
+  isDraggedOver,
   onToggleExpand,
   onToggleComplete,
   onDelete,
@@ -309,10 +383,10 @@ function TaskItem({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task._id,
   });
-  const style = {
+  const style = useMemo(() => ({
     transform: CSS.Transform.toString(transform),
-    opacity: isDragging ? 0.6 : 1,
-  };
+  }), [transform]);
+  
   const [description, setDescription] = useState(task.description || "");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
@@ -331,13 +405,18 @@ function TaskItem({
     setEditedTitle(task.title);
   }, [task.title]);
 
-  const handleDescriptionBlur = () => {
+  // Sync description when task changes
+  useEffect(() => {
+    setDescription(task.description || "");
+  }, [task.description]);
+
+  const handleDescriptionBlur = useCallback(() => {
     if (description !== (task.description || "")) {
       onDescriptionChange(description);
     }
-  };
+  }, [description, task.description, onDescriptionChange]);
 
-  const handleTitleSave = () => {
+  const handleTitleSave = useCallback(() => {
     const trimmed = editedTitle.trim();
     if (trimmed && trimmed !== task.title) {
       onTitleChange(trimmed);
@@ -345,30 +424,51 @@ function TaskItem({
       setEditedTitle(task.title);
     }
     setIsEditingTitle(false);
-  };
+  }, [editedTitle, task.title, onTitleChange]);
 
-  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+  const handleTitleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleTitleSave();
     } else if (e.key === "Escape") {
       setEditedTitle(task.title);
       setIsEditingTitle(false);
     }
-  };
+  }, [handleTitleSave, task.title]);
+
+  const handleStatusSelectChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    onStatusChange(e.target.value as TaskStatus);
+  }, [onStatusChange]);
+
+  // When dragging, show a ghost placeholder
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="rounded-lg border-2 border-dashed border-[var(--color-primary)]/40 bg-[var(--color-primary-subtle)] p-3 opacity-50"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-6" />
+          <div className="h-5 w-5 rounded border border-[var(--color-border)]/30" />
+          <span className="flex-1 text-body text-[var(--color-text-muted)]">{task.title}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded-lg border border-[var(--color-border)] p-3 transition-all ${
+      className={`rounded-lg border border-[var(--color-border)] p-3 transition-shadow duration-150 hover:shadow-md ${
         task.isCompleted ? "bg-[var(--color-bg-hover)] opacity-60" : "bg-[var(--color-bg-card)]"
-      }`}
+      } ${isDraggedOver ? "ring-2 ring-[var(--color-primary)]/30" : ""}`}
     >
       <div className="flex items-center gap-3">
         <button
           {...attributes}
           {...listeners}
-          className="btn-ghost rounded p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+          className="btn-ghost rounded p-1 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-grab active:cursor-grabbing"
           aria-label="Drag task"
           type="button"
         >
@@ -377,7 +477,7 @@ function TaskItem({
         {/* Checkbox */}
         <button
           onClick={onToggleComplete}
-          className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
+          className={`flex h-5 w-5 items-center justify-center rounded border transition-colors ${
             task.isCompleted
               ? "border-[var(--color-success)] bg-[var(--color-success)]"
               : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
@@ -424,7 +524,7 @@ function TaskItem({
         {/* Status Dropdown */}
         <select
           value={task.status}
-          onChange={(e) => onStatusChange(e.target.value as TaskStatus)}
+          onChange={handleStatusSelectChange}
           className="input py-1 text-caption"
         >
           {ALL_SECTIONS.map((s) => (
@@ -455,7 +555,7 @@ function TaskItem({
       </div>
 
       {/* Expanded Description */}
-      {isExpanded && (
+      {isExpanded && !isDragging && (
         <div className="mt-3 pl-8">
           <textarea
             value={description}
@@ -469,14 +569,14 @@ function TaskItem({
       )}
     </div>
   );
-}
+});
 
-function TaskSection({
+const TaskSection = memo(function TaskSection({
   section,
   sectionTasks,
   isCollapsed,
-  completedCount,
   expandedTask,
+  activeId,
   onToggleSection,
   onToggleExpand,
   onToggleComplete,
@@ -490,14 +590,30 @@ function TaskSection({
   const sectionDropId = getSectionDropId(section.id);
   const { isOver, setNodeRef } = useDroppable({ id: sectionDropId });
 
+  const completedCount = useMemo(() => 
+    sectionTasks.filter((t) => t.isCompleted).length,
+    [sectionTasks]
+  );
+
+  const handleToggleSectionClick = useCallback(() => {
+    onToggleSection(section.id);
+  }, [onToggleSection, section.id]);
+
+  // Check if any task is being dragged
+  const isDragging = activeId !== null;
+
   return (
     <div
       ref={setNodeRef}
-      className={`card p-4 transition ${isOver ? "ring-2 ring-[var(--color-primary)]/40" : ""} ${
-        isLongTerm ? "border-dashed border-[var(--color-border)]" : ""
-      }`}
+      className={`card p-4 transition-all duration-200 ${
+        isOver 
+          ? "ring-2 ring-[var(--color-primary)] bg-[var(--color-primary-subtle)] shadow-lg scale-[1.01]" 
+          : isDragging 
+            ? "ring-1 ring-[var(--color-border)] ring-dashed" 
+            : ""
+      } ${isLongTerm ? "border-dashed border-[var(--color-border)]" : ""}`}
     >
-      <button onClick={onToggleSection} className="flex w-full items-center gap-2 text-left">
+      <button onClick={handleToggleSectionClick} className="flex w-full items-center gap-2 text-left">
         {isCollapsed ? (
           <ChevronRight size={18} className="text-[var(--color-text-muted)]" />
         ) : (
@@ -515,24 +631,28 @@ function TaskSection({
       </button>
 
       {!isCollapsed && (
-        <div className="mt-4 space-y-2">
+        <div className={`mt-4 space-y-2 transition-all duration-200 ${isOver ? "min-h-[60px]" : ""}`}>
           {sectionTasks.length === 0 ? (
-            <p className="text-body text-[var(--color-text-muted)] py-2">
-              {isLongTerm ? "No long term items" : "No tasks"}
+            <p className={`text-body py-2 transition-colors ${
+              isOver 
+                ? "text-[var(--color-primary)] font-medium" 
+                : "text-[var(--color-text-muted)]"
+            }`}>
+              {isOver ? "Drop here!" : isLongTerm ? "No long term items" : "No tasks"}
             </p>
           ) : (
             sectionTasks.map((task) => (
-              <TaskItem
+              <MemoizedTaskItemWrapper
                 key={task._id}
                 task={task}
                 isExpanded={expandedTask === task._id}
-                onToggleExpand={() => onToggleExpand(task._id)}
-                onToggleComplete={() => onToggleComplete(task._id)}
-                onDelete={() => onDelete(task._id)}
-                onStatusChange={(status) => onStatusChange(task._id, status)}
-                onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
-                onTitleChange={(title) => onTitleChange(task._id, title)}
-                onArchive={() => onArchive(task._id)}
+                onToggleExpand={onToggleExpand}
+                onToggleComplete={onToggleComplete}
+                onDelete={onDelete}
+                onStatusChange={onStatusChange}
+                onDescriptionChange={onDescriptionChange}
+                onTitleChange={onTitleChange}
+                onArchive={onArchive}
               />
             ))
           )}
@@ -540,7 +660,52 @@ function TaskSection({
       )}
     </div>
   );
-}
+});
+
+// Wrapper to avoid creating new callbacks for each task
+const MemoizedTaskItemWrapper = memo(function MemoizedTaskItemWrapper({
+  task,
+  isExpanded,
+  onToggleExpand,
+  onToggleComplete,
+  onDelete,
+  onStatusChange,
+  onDescriptionChange,
+  onTitleChange,
+  onArchive,
+}: {
+  task: Task;
+  isExpanded: boolean;
+  onToggleExpand: (taskId: string) => void;
+  onToggleComplete: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+  onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onDescriptionChange: (taskId: string, description: string) => void;
+  onTitleChange: (taskId: string, title: string) => void;
+  onArchive: (taskId: string) => void;
+}) {
+  const handleToggleExpand = useCallback(() => onToggleExpand(task._id), [onToggleExpand, task._id]);
+  const handleToggleComplete = useCallback(() => onToggleComplete(task._id), [onToggleComplete, task._id]);
+  const handleDelete = useCallback(() => onDelete(task._id), [onDelete, task._id]);
+  const handleStatusChange = useCallback((status: TaskStatus) => onStatusChange(task._id, status), [onStatusChange, task._id]);
+  const handleDescriptionChange = useCallback((desc: string) => onDescriptionChange(task._id, desc), [onDescriptionChange, task._id]);
+  const handleTitleChange = useCallback((title: string) => onTitleChange(task._id, title), [onTitleChange, task._id]);
+  const handleArchive = useCallback(() => onArchive(task._id), [onArchive, task._id]);
+
+  return (
+    <TaskItem
+      task={task}
+      isExpanded={isExpanded}
+      onToggleExpand={handleToggleExpand}
+      onToggleComplete={handleToggleComplete}
+      onDelete={handleDelete}
+      onStatusChange={handleStatusChange}
+      onDescriptionChange={handleDescriptionChange}
+      onTitleChange={handleTitleChange}
+      onArchive={handleArchive}
+    />
+  );
+});
 
 function getSectionDropId(status: TaskStatus) {
   return `section-${status}`;
@@ -558,7 +723,7 @@ function getStatusFromOver(
   return overTask ? overTask.status : null;
 }
 
-function ArchivedSection({
+const ArchivedSection = memo(function ArchivedSection({
   tasks,
   expandedTask,
   onToggleExpand,
@@ -569,6 +734,10 @@ function ArchivedSection({
   onTitleChange,
 }: ArchivedSectionProps) {
   const [unarchiveStatus, setUnarchiveStatus] = useState<Record<string, ActiveTaskStatus>>({});
+
+  const handleUnarchiveStatusChange = useCallback((taskId: string, status: ActiveTaskStatus) => {
+    setUnarchiveStatus((prev) => ({ ...prev, [taskId]: status }));
+  }, []);
 
   if (tasks.length === 0) {
     return (
@@ -583,28 +752,73 @@ function ArchivedSection({
       <h2 className="text-heading text-[var(--color-text-primary)] mb-4">Archived</h2>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <ArchivedTaskItem
+          <MemoizedArchivedTaskItemWrapper
             key={task._id}
             task={task}
             isExpanded={expandedTask === task._id}
-            onToggleExpand={() => onToggleExpand(task._id)}
-            onToggleComplete={() => onToggleComplete(task._id)}
-            onDelete={() => onDelete(task._id)}
+            onToggleExpand={onToggleExpand}
+            onToggleComplete={onToggleComplete}
+            onDelete={onDelete}
             unarchiveStatus={unarchiveStatus[task._id] || "backlog"}
-            onUnarchiveStatusChange={(status) =>
-              setUnarchiveStatus((prev) => ({ ...prev, [task._id]: status }))
-            }
-            onUnarchive={() => onUnarchive(task._id, unarchiveStatus[task._id] || "backlog")}
-            onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
-            onTitleChange={(title) => onTitleChange(task._id, title)}
+            onUnarchiveStatusChange={handleUnarchiveStatusChange}
+            onUnarchive={onUnarchive}
+            onDescriptionChange={onDescriptionChange}
+            onTitleChange={onTitleChange}
           />
         ))}
       </div>
     </div>
   );
-}
+});
 
-function ArchivedTaskItem({
+const MemoizedArchivedTaskItemWrapper = memo(function MemoizedArchivedTaskItemWrapper({
+  task,
+  isExpanded,
+  onToggleExpand,
+  onToggleComplete,
+  onDelete,
+  unarchiveStatus,
+  onUnarchiveStatusChange,
+  onUnarchive,
+  onDescriptionChange,
+  onTitleChange,
+}: {
+  task: Task;
+  isExpanded: boolean;
+  onToggleExpand: (taskId: string) => void;
+  onToggleComplete: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+  unarchiveStatus: ActiveTaskStatus;
+  onUnarchiveStatusChange: (taskId: string, status: ActiveTaskStatus) => void;
+  onUnarchive: (taskId: string, status: ActiveTaskStatus) => void;
+  onDescriptionChange: (taskId: string, description: string) => void;
+  onTitleChange: (taskId: string, title: string) => void;
+}) {
+  const handleToggleExpand = useCallback(() => onToggleExpand(task._id), [onToggleExpand, task._id]);
+  const handleToggleComplete = useCallback(() => onToggleComplete(task._id), [onToggleComplete, task._id]);
+  const handleDelete = useCallback(() => onDelete(task._id), [onDelete, task._id]);
+  const handleUnarchiveStatusChange = useCallback((status: ActiveTaskStatus) => onUnarchiveStatusChange(task._id, status), [onUnarchiveStatusChange, task._id]);
+  const handleUnarchive = useCallback(() => onUnarchive(task._id, unarchiveStatus), [onUnarchive, task._id, unarchiveStatus]);
+  const handleDescriptionChange = useCallback((desc: string) => onDescriptionChange(task._id, desc), [onDescriptionChange, task._id]);
+  const handleTitleChange = useCallback((title: string) => onTitleChange(task._id, title), [onTitleChange, task._id]);
+
+  return (
+    <ArchivedTaskItem
+      task={task}
+      isExpanded={isExpanded}
+      onToggleExpand={handleToggleExpand}
+      onToggleComplete={handleToggleComplete}
+      onDelete={handleDelete}
+      unarchiveStatus={unarchiveStatus}
+      onUnarchiveStatusChange={handleUnarchiveStatusChange}
+      onUnarchive={handleUnarchive}
+      onDescriptionChange={handleDescriptionChange}
+      onTitleChange={handleTitleChange}
+    />
+  );
+});
+
+const ArchivedTaskItem = memo(function ArchivedTaskItem({
   task,
   isExpanded,
   onToggleExpand,
@@ -645,13 +859,18 @@ function ArchivedTaskItem({
     setEditedTitle(task.title);
   }, [task.title]);
 
-  const handleDescriptionBlur = () => {
+  // Sync description when task changes
+  useEffect(() => {
+    setDescription(task.description || "");
+  }, [task.description]);
+
+  const handleDescriptionBlur = useCallback(() => {
     if (description !== (task.description || "")) {
       onDescriptionChange(description);
     }
-  };
+  }, [description, task.description, onDescriptionChange]);
 
-  const handleTitleSave = () => {
+  const handleTitleSave = useCallback(() => {
     const trimmed = editedTitle.trim();
     if (trimmed && trimmed !== task.title) {
       onTitleChange(trimmed);
@@ -659,20 +878,24 @@ function ArchivedTaskItem({
       setEditedTitle(task.title);
     }
     setIsEditingTitle(false);
-  };
+  }, [editedTitle, task.title, onTitleChange]);
 
-  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+  const handleTitleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       handleTitleSave();
     } else if (e.key === "Escape") {
       setEditedTitle(task.title);
       setIsEditingTitle(false);
     }
-  };
+  }, [handleTitleSave, task.title]);
+
+  const handleUnarchiveStatusSelectChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    onUnarchiveStatusChange(e.target.value as ActiveTaskStatus);
+  }, [onUnarchiveStatusChange]);
 
   return (
     <div
-      className={`rounded-lg border border-[var(--color-border)] p-3 transition-all ${
+      className={`rounded-lg border border-[var(--color-border)] p-3 transition-colors ${
         task.isCompleted ? "bg-[var(--color-bg-hover)] opacity-60" : "bg-[var(--color-bg-card)]"
       }`}
     >
@@ -680,7 +903,7 @@ function ArchivedTaskItem({
         {/* Checkbox */}
         <button
           onClick={onToggleComplete}
-          className={`flex h-5 w-5 items-center justify-center rounded border transition-all ${
+          className={`flex h-5 w-5 items-center justify-center rounded border transition-colors ${
             task.isCompleted
               ? "border-[var(--color-success)] bg-[var(--color-success)]"
               : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
@@ -727,7 +950,7 @@ function ArchivedTaskItem({
         {/* Restore dropdown */}
         <select
           value={unarchiveStatus}
-          onChange={(e) => onUnarchiveStatusChange(e.target.value as ActiveTaskStatus)}
+          onChange={handleUnarchiveStatusSelectChange}
           className="input py-1 text-caption"
         >
           {ALL_SECTIONS.map((s) => (
@@ -770,11 +993,12 @@ function ArchivedTaskItem({
       )}
     </div>
   );
-}
+});
 
 interface TaskItemProps {
   task: Task;
   isExpanded: boolean;
+  isDraggedOver?: boolean;
   onToggleExpand: () => void;
   onToggleComplete: () => void;
   onDelete: () => void;
@@ -788,26 +1012,26 @@ interface TaskSectionProps {
   section: { id: TaskStatus; label: string };
   sectionTasks: Task[];
   isCollapsed: boolean;
-  completedCount: number;
   expandedTask: string | null;
-  onToggleSection: () => void;
-  onToggleExpand: (taskId: Task["_id"]) => void;
-  onToggleComplete: (taskId: Task["_id"]) => void;
-  onDelete: (taskId: Task["_id"]) => void;
-  onStatusChange: (taskId: Task["_id"], status: TaskStatus) => void;
-  onDescriptionChange: (taskId: Task["_id"], description: string) => void;
-  onTitleChange: (taskId: Task["_id"], title: string) => void;
-  onArchive: (taskId: Task["_id"]) => void;
+  activeId: string | null;
+  onToggleSection: (sectionId: TaskStatus) => void;
+  onToggleExpand: (taskId: string) => void;
+  onToggleComplete: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+  onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onDescriptionChange: (taskId: string, description: string) => void;
+  onTitleChange: (taskId: string, title: string) => void;
+  onArchive: (taskId: string) => void;
   isLongTerm?: boolean;
 }
 
 interface ArchivedSectionProps {
   tasks: Task[];
   expandedTask: string | null;
-  onToggleExpand: (taskId: Task["_id"]) => void;
-  onToggleComplete: (taskId: Task["_id"]) => void;
-  onDelete: (taskId: Task["_id"]) => void;
-  onUnarchive: (taskId: Task["_id"], status: ActiveTaskStatus) => void;
-  onDescriptionChange: (taskId: Task["_id"], description: string) => void;
-  onTitleChange: (taskId: Task["_id"], title: string) => void;
+  onToggleExpand: (taskId: string) => void;
+  onToggleComplete: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+  onUnarchive: (taskId: string, status: ActiveTaskStatus) => void;
+  onDescriptionChange: (taskId: string, description: string) => void;
+  onTitleChange: (taskId: string, title: string) => void;
 }
