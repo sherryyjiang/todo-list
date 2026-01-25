@@ -13,6 +13,7 @@ export const create = mutation({
   args: {
     title: v.string(),
     description: v.optional(v.string()),
+    category: v.optional(v.union(v.literal("general"), v.literal("coding"))),
   },
   handler: async (ctx, args) => {
     const existingTasks = await ctx.db
@@ -29,6 +30,7 @@ export const create = mutation({
       title: args.title,
       description: args.description,
       status: "backlog",
+      category: args.category ?? "general",
       isCompleted: false,
       order: maxOrder + 1,
       createdAt: Date.now(),
@@ -48,6 +50,7 @@ export const createWithStatus = mutation({
       v.literal("backlog"),
       v.literal("long_term")
     ),
+    category: v.optional(v.union(v.literal("general"), v.literal("coding"))),
   },
   handler: async (ctx, args) => {
     const existingTasks = await ctx.db
@@ -64,6 +67,7 @@ export const createWithStatus = mutation({
       title: args.title,
       description: args.description,
       status: args.status,
+      category: args.category ?? "general",
       isCompleted: false,
       order: maxOrder + 1,
       createdAt: Date.now(),
@@ -120,6 +124,16 @@ export const updateDescription = mutation({
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, { description: args.description });
+  },
+});
+
+export const updateCategory = mutation({
+  args: {
+    id: v.id("tasks"),
+    category: v.union(v.literal("general"), v.literal("coding")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.id, { category: args.category });
   },
 });
 

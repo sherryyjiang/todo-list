@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
-import { Task, TaskStatus, ActiveTaskStatus, SECTIONS, LONG_TERM_SECTION, ALL_SECTIONS } from "@/types";
+import { Task, TaskStatus, TaskCategory, ActiveTaskStatus, SECTIONS, LONG_TERM_SECTION, ALL_SECTIONS, CATEGORIES } from "@/types";
 import {
   ChevronDown,
   ChevronRight,
@@ -72,6 +72,7 @@ function TodoApp() {
   const [collapsedSections, setCollapsedSections] = useState<Set<TaskStatus>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<TaskCategory>("general");
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   // Track if we've already created a "Clear backlog" task this session
@@ -103,6 +104,7 @@ function TodoApp() {
         title: CLEAR_BACKLOG_TITLE,
         description: `You have ${backlogTasks.length} items in your backlog. Time to prioritize and clear some out!`,
         status: "today",
+        category: "general",
       });
     }
 
@@ -123,9 +125,9 @@ function TodoApp() {
   const handleAddTask = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTaskTitle.trim()) return;
-    await createTask({ title: newTaskTitle.trim() });
+    await createTask({ title: newTaskTitle.trim(), category: selectedCategory });
     setNewTaskTitle("");
-  }, [newTaskTitle, createTask]);
+  }, [newTaskTitle, createTask, selectedCategory]);
 
   const handleToggleComplete = useCallback((taskId: string) => {
     toggleComplete({ id: taskId as Task["_id"] });
@@ -171,6 +173,14 @@ function TodoApp() {
     setExpandedTask((prev) => prev === taskId ? null : taskId);
   }, []);
 
+  // Filter tasks by selected category (treat undefined/null as "general" for existing tasks)
+  const filteredTasks = useMemo(() => {
+    return tasks?.filter((task) => {
+      const taskCategory = task.category || "general";
+      return taskCategory === selectedCategory;
+    });
+  }, [tasks, selectedCategory]);
+
   // Memoize tasks by section to avoid filtering on every render
   const tasksBySection = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = {
@@ -182,11 +192,11 @@ function TodoApp() {
       long_term: [],
       archived: [],
     };
-    tasks?.forEach((task) => {
+    filteredTasks?.forEach((task) => {
       map[task.status].push(task);
     });
     return map;
-  }, [tasks]);
+  }, [filteredTasks]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(String(event.active.id));
@@ -214,41 +224,82 @@ function TodoApp() {
   const activeTask = activeId ? taskById.get(activeId) : null;
 
   return (
-    <DndContext 
-      sensors={sensors} 
+    <DndContext
+      sensors={sensors}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
       <div className="min-h-screen bg-[var(--color-bg-main)] p-4 md:p-8">
-        <div className="mx-auto max-w-2xl">
-          <h1 className="text-display mb-8 text-[var(--color-text-primary)]">Todo List</h1>
+        <div className="mx-auto max-w-4xl flex gap-6">
+          {/* Sidebar with Category Tabs */}
+          <div className="w-48 flex-shrink-0">
+            <h1 className="text-display mb-6 text-[var(--color-text-primary)]">Todo List</h1>
+            <nav className="space-y-1">
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition-all ${
+                    selectedCategory === category.id
+                      ? "bg-[var(--color-primary)] text-white font-medium shadow-md"
+                      : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                  }`}
+                >
+                  <span className="text-lg">{category.icon}</span>
+                  <span className="text-body">{category.label}</span>
+                </button>
+              ))}
+            </nav>
+          </div>
 
-          {/* Add Task Form */}
-          <form onSubmit={handleAddTask} className="mb-8">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newTaskTitle}
-                onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder="Add a new task..."
-                className="input flex-1"
-              />
-              <button type="submit" className="btn btn-primary">
-                <Plus size={20} />
-                Add
-              </button>
+          {/* Main Content */}
+          <div className="flex-1 min-w-0">
+            {/* Add Task Form */}
+            <form onSubmit={handleAddTask} className="mb-8">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  placeholder={`Add a new ${selectedCategory === "coding" ? "coding " : ""}task...`}
+                  className="input flex-1"
+                />
+                <button type="submit" className="btn btn-primary">
+                  <Plus size={20} />
+                  Add
+                </button>
+              </div>
+            </form>
+
+            {/* Task Sections */}
+            <div className="space-y-6">
+              {SECTIONS.map((section) => (
+                <TaskSection
+                  key={section.id}
+                  section={section}
+                  sectionTasks={tasksBySection[section.id]}
+                  isCollapsed={collapsedSections.has(section.id)}
+                  expandedTask={expandedTask}
+                  activeId={activeId}
+                  onToggleSection={toggleSection}
+                  onToggleExpand={handleToggleExpand}
+                  onToggleComplete={handleToggleComplete}
+                  onDelete={handleDelete}
+                  onStatusChange={handleStatusChange}
+                  onDescriptionChange={handleDescriptionChange}
+                  onTitleChange={handleTitleChange}
+                  onArchive={handleArchive}
+                />
+              ))}
             </div>
-          </form>
 
-          {/* Task Sections */}
-          <div className="space-y-6">
-            {SECTIONS.map((section) => (
+            {/* Long Term Section */}
+            <div className="mt-8">
               <TaskSection
-                key={section.id}
-                section={section}
-                sectionTasks={tasksBySection[section.id]}
-                isCollapsed={collapsedSections.has(section.id)}
+                section={LONG_TERM_SECTION}
+                sectionTasks={tasksBySection.long_term}
+                isCollapsed={collapsedSections.has("long_term")}
                 expandedTask={expandedTask}
                 activeId={activeId}
                 onToggleSection={toggleSection}
@@ -259,59 +310,40 @@ function TodoApp() {
                 onDescriptionChange={handleDescriptionChange}
                 onTitleChange={handleTitleChange}
                 onArchive={handleArchive}
+                isLongTerm
               />
-            ))}
-          </div>
+            </div>
 
-          {/* Long Term Section */}
-          <div className="mt-8">
-            <TaskSection
-              section={LONG_TERM_SECTION}
-              sectionTasks={tasksBySection.long_term}
-              isCollapsed={collapsedSections.has("long_term")}
-              expandedTask={expandedTask}
-              activeId={activeId}
-              onToggleSection={toggleSection}
-              onToggleExpand={handleToggleExpand}
-              onToggleComplete={handleToggleComplete}
-              onDelete={handleDelete}
-              onStatusChange={handleStatusChange}
-              onDescriptionChange={handleDescriptionChange}
-              onTitleChange={handleTitleChange}
-              onArchive={handleArchive}
-              isLongTerm
-            />
-          </div>
+            {/* Archived Section Toggle */}
+            <div className="mt-8 border-t border-[var(--color-border)] pt-6">
+              <button
+                onClick={() => setShowArchived(!showArchived)}
+                className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+              >
+                <Archive size={18} />
+                <span className="text-body">
+                  {showArchived ? "Hide Archived" : "Show Archived"}
+                </span>
+                <span className="text-caption">
+                  ({tasksBySection.archived.length})
+                </span>
+              </button>
 
-          {/* Archived Section Toggle */}
-          <div className="mt-8 border-t border-[var(--color-border)] pt-6">
-            <button
-              onClick={() => setShowArchived(!showArchived)}
-              className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-            >
-              <Archive size={18} />
-              <span className="text-body">
-                {showArchived ? "Hide Archived" : "Show Archived"}
-              </span>
-              <span className="text-caption">
-                ({tasksBySection.archived.length})
-              </span>
-            </button>
-
-            {showArchived && (
-              <div className="mt-4">
-                <ArchivedSection
-                  tasks={tasksBySection.archived}
-                  expandedTask={expandedTask}
-                  onToggleExpand={handleToggleExpand}
-                  onToggleComplete={handleToggleComplete}
-                  onDelete={handleDelete}
-                  onUnarchive={handleUnarchive}
-                  onDescriptionChange={handleDescriptionChange}
-                  onTitleChange={handleTitleChange}
-                />
-              </div>
-            )}
+              {showArchived && (
+                <div className="mt-4">
+                  <ArchivedSection
+                    tasks={tasksBySection.archived}
+                    expandedTask={expandedTask}
+                    onToggleExpand={handleToggleExpand}
+                    onToggleComplete={handleToggleComplete}
+                    onDelete={handleDelete}
+                    onUnarchive={handleUnarchive}
+                    onDescriptionChange={handleDescriptionChange}
+                    onTitleChange={handleTitleChange}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

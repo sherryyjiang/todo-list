@@ -15,8 +15,13 @@ export default defineSchema({
       v.literal("long_term"),
       v.literal("archived")
     ),
+    category: v.optional(v.union(
+      v.literal("general"),
+      v.literal("coding")
+    )),
     isCompleted: v.boolean(),
     order: v.number(),
     createdAt: v.number(),
-  }).index("by_status", ["status"]),
+  }).index("by_status", ["status"])
+    .index("by_category", ["category"]),
 });

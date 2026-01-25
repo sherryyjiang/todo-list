@@ -5,16 +5,25 @@ export type TaskStatus = "today" | "tomorrow" | "this_week" | "next_week" | "bac
 // Status types that can be used as destinations (excludes archived)
 export type ActiveTaskStatus = Exclude<TaskStatus, "archived">;
 
+export type TaskCategory = "general" | "coding";
+
 export interface Task {
   _id: Id<"tasks">;
   _creationTime: number;
   title: string;
   description?: string;
   status: TaskStatus;
+  category?: TaskCategory;
   isCompleted: boolean;
   order: number;
   createdAt: number;
 }
+
+// Category tabs for the sidebar
+export const CATEGORIES: { id: TaskCategory; label: string; icon: string }[] = [
+  { id: "general", label: "General", icon: "📋" },
+  { id: "coding", label: "Coding Tasks", icon: "💻" },
+];
 
 // Main sections shown in the primary view
 export const SECTIONS: { id: TaskStatus; label: string }[] = [
