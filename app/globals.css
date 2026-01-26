@@ -611,6 +611,74 @@
     opacity: 0.1;
     transform: scale(1.5);
   }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     KANBAN LAYOUT
+     ═══════════════════════════════════════════════════════════════════ */
+  
+  /* Kanban horizontal scroll container */
+  .kanban-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  .kanban-scroll::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .kanban-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .kanban-scroll::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+
+  .kanban-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+  }
+
+  /* Kanban column */
+  .kanban-column {
+    max-height: calc(100vh - 100px);
+  }
+
+  /* Compact task item */
+  .compact-task {
+    cursor: default;
+  }
+
+  .compact-task:hover {
+    z-index: 1;
+  }
+
+  /* Slide in animation for archived panel */
+  @keyframes slideInRight {
+    from {
+      opacity: 0;
+      transform: translateX(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slideInRight {
+    animation: slideInRight 0.2s ease-out;
+  }
+
+  /* Header blur effect */
+  @supports (backdrop-filter: blur(8px)) {
+    header {
+      background: rgba(255, 255, 255, 0.8) !important;
+    }
+    
+    .dark header {
+      background: rgba(26, 22, 20, 0.8) !important;
+    }
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════════════

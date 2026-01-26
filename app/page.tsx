@@ -276,51 +276,18 @@ function TodoApp() {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="min-h-screen bg-[var(--color-bg-main)] p-4 md:p-8 lg:p-10">
-        <div className="mx-auto max-w-5xl flex gap-8">
-          {/* Sidebar with Category Tabs */}
-          <aside className="w-56 flex-shrink-0 hidden md:block">
-            <div className="sticky top-8">
-              <h1 className="text-display mb-2 text-[var(--color-text-primary)] tracking-tight">
+      <div className="h-screen flex flex-col bg-[var(--color-bg-main)] overflow-hidden">
+        {/* Top Header Bar */}
+        <header className="flex-shrink-0 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]/80 backdrop-blur-sm">
+          <div className="px-4 lg:px-6 py-3 flex items-center justify-between gap-4">
+            {/* Logo & Title */}
+            <div className="flex items-center gap-4">
+              <h1 className="text-title text-[var(--color-text-primary)] tracking-tight font-semibold">
                 TaskFlow
               </h1>
-              <p className="text-caption text-[var(--color-text-muted)] mb-8">
-                Stay focused, stay organized
-              </p>
               
-              {/* Overall Progress */}
-              {overallStats.total > 0 && (
-                <div className="mb-8 p-4 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border-subtle)] shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-caption text-[var(--color-text-muted)] uppercase tracking-wide">Today&apos;s Progress</span>
-                    <span className="text-heading text-[var(--color-primary)] tabular-nums">
-                      {overallStats.todayCompleted}/{overallStats.today}
-                    </span>
-                  </div>
-                  <div className="h-2 bg-[var(--color-bg-active)] rounded-full overflow-hidden">
-                    <div 
-                      className="h-full rounded-full transition-all duration-700 ease-out"
-                      style={{ 
-                        width: overallStats.today > 0 
-                          ? `${(overallStats.todayCompleted / overallStats.today) * 100}%` 
-                          : '0%',
-                        background: overallStats.todayCompleted === overallStats.today && overallStats.today > 0
-                          ? 'var(--color-success)'
-                          : 'var(--grad-primary)',
-                      }}
-                    />
-                  </div>
-                  {overallStats.todayCompleted === overallStats.today && overallStats.today > 0 && (
-                    <p className="text-caption text-[var(--color-success)] mt-2 font-medium">
-                      All done for today! 🎉
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Category Navigation */}
-              <nav className="space-y-2">
-                <p className="text-label mb-3">Categories</p>
+              {/* Category Tabs - Inline */}
+              <div className="flex items-center gap-1 bg-[var(--color-bg-hover)] rounded-lg p-1">
                 {CATEGORIES.map((category) => {
                   const categoryTasks = tasks?.filter(t => (t.category || 'general') === category.id && t.status !== 'archived') || [];
                   const categoryCompleted = categoryTasks.filter(t => t.isCompleted).length;
@@ -329,101 +296,116 @@ function TodoApp() {
                     <button
                       key={category.id}
                       onClick={() => setSelectedCategory(category.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group ${
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-body transition-all duration-150 ${
                         selectedCategory === category.id
-                          ? "bg-[var(--color-primary)] text-white font-medium shadow-lg shadow-[var(--color-primary)]/20"
-                          : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                          ? "bg-[var(--color-bg-card)] text-[var(--color-text-primary)] shadow-sm font-medium"
+                          : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                       }`}
                     >
-                      <span className={`text-xl transition-transform duration-200 ${selectedCategory === category.id ? 'scale-110' : 'group-hover:scale-110'}`}>
-                        {category.icon}
-                      </span>
-                      <span className="text-body flex-1">{category.label}</span>
+                      <span>{category.icon}</span>
+                      <span className="hidden sm:inline">{category.label}</span>
                       {categoryTasks.length > 0 && (
-                        <span className={`text-caption tabular-nums ${
-                          selectedCategory === category.id 
-                            ? 'text-white/70' 
-                            : 'text-[var(--color-text-muted)]'
-                        }`}>
+                        <span className="text-caption tabular-nums opacity-60">
                           {categoryCompleted}/{categoryTasks.length}
                         </span>
                       )}
                     </button>
                   );
                 })}
-              </nav>
-            </div>
-          </aside>
-
-          {/* Main Content */}
-          <main className="flex-1 min-w-0">
-            {/* Mobile Header */}
-            <div className="md:hidden mb-6">
-              <h1 className="text-display text-[var(--color-text-primary)] tracking-tight">TaskFlow</h1>
-              <div className="flex gap-2 mt-4">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-body transition-all ${
-                      selectedCategory === cat.id
-                        ? "bg-[var(--color-primary)] text-white"
-                        : "bg-[var(--color-bg-card)] text-[var(--color-text-secondary)]"
-                    }`}
-                  >
-                    <span>{cat.icon}</span>
-                    <span>{cat.label}</span>
-                  </button>
-                ))}
               </div>
             </div>
 
-            {/* Add Task Form - Enhanced */}
-            <form onSubmit={handleAddTask} className="mb-10">
-              <div className="add-task-container group relative">
-                <div className="flex gap-3 p-2 rounded-2xl bg-[var(--color-bg-card)] border-2 border-[var(--color-border)] shadow-sm transition-all duration-200 focus-within:border-[var(--color-primary)] focus-within:shadow-lg focus-within:shadow-[var(--color-primary)]/10">
-                  <div className="flex items-center pl-3">
-                    <Plus 
-                      size={20} 
-                      className="text-[var(--color-text-muted)] group-focus-within:text-[var(--color-primary)] transition-colors" 
-                    />
-                  </div>
+            {/* Add Task Form - Compact */}
+            <form onSubmit={handleAddTask} className="flex-1 max-w-md">
+              <div className="flex gap-2 items-center">
+                <div className="flex-1 flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--color-bg-main)] border border-[var(--color-border)] focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[var(--color-primary)]/20 transition-all">
+                  <Plus size={16} className="text-[var(--color-text-muted)] flex-shrink-0" />
                   <input
                     type="text"
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
-                    placeholder={`What needs to be done${selectedCategory === "coding" ? " (coding)" : ""}?`}
-                    className="flex-1 bg-transparent border-none outline-none text-body text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] py-3"
+                    placeholder="Add task..."
+                    className="flex-1 bg-transparent border-none outline-none text-body text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)]"
                   />
-                  <button 
-                    type="submit" 
-                    disabled={!newTaskTitle.trim()}
-                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium text-body transition-all duration-200 ${
-                      newTaskTitle.trim()
-                        ? "bg-[var(--color-primary)] text-white shadow-md shadow-[var(--color-primary)]/20 hover:bg-[var(--color-primary-hover)] hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]"
-                        : "bg-[var(--color-bg-active)] text-[var(--color-text-muted)] cursor-not-allowed"
-                    }`}
-                  >
-                    <span>Add Task</span>
-                  </button>
                 </div>
-                <p className="text-caption text-[var(--color-text-muted)] mt-2 ml-4 opacity-0 group-focus-within:opacity-100 transition-opacity">
-                  Press Enter to add task
-                </p>
+                <button 
+                  type="submit" 
+                  disabled={!newTaskTitle.trim()}
+                  className={`px-4 py-2 rounded-lg text-body font-medium transition-all duration-150 ${
+                    newTaskTitle.trim()
+                      ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]"
+                      : "bg-[var(--color-bg-active)] text-[var(--color-text-muted)] cursor-not-allowed"
+                  }`}
+                >
+                  Add
+                </button>
               </div>
             </form>
 
-            {/* Task Sections */}
-            <div className="space-y-6">
+            {/* Today's Progress - Compact */}
+            {overallStats.today > 0 && (
+              <div className="hidden lg:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-[var(--color-bg-hover)]">
+                <span className="text-caption text-[var(--color-text-muted)]">Today</span>
+                <div className="w-20 h-1.5 bg-[var(--color-bg-active)] rounded-full overflow-hidden">
+                  <div 
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ 
+                      width: `${(overallStats.todayCompleted / overallStats.today) * 100}%`,
+                      background: overallStats.todayCompleted === overallStats.today
+                        ? 'var(--color-success)'
+                        : 'var(--grad-primary)',
+                    }}
+                  />
+                </div>
+                <span className="text-caption text-[var(--color-text-primary)] font-medium tabular-nums">
+                  {overallStats.todayCompleted}/{overallStats.today}
+                </span>
+              </div>
+            )}
+
+            {/* Archive Actions */}
+            <div className="flex items-center gap-2">
+              {completedNotArchivedCount > 0 && (
+                <button
+                  onClick={handleArchiveAllCompleted}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-caption text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)] transition-all"
+                  title="Archive all completed tasks"
+                >
+                  <Archive size={14} />
+                  <span className="hidden sm:inline">Archive</span>
+                  <span className="bg-[var(--color-success)] text-white text-[10px] px-1.5 py-0.5 rounded-full font-medium">
+                    {completedNotArchivedCount}
+                  </span>
+                </button>
+              )}
+              <button
+                onClick={() => setShowArchived(!showArchived)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-caption transition-all ${
+                  showArchived 
+                    ? "bg-[var(--color-primary-subtle)] text-[var(--color-primary)]"
+                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)]"
+                }`}
+              >
+                <Archive size={14} />
+                <span className="hidden sm:inline">{showArchived ? "Hide" : "Show"}</span>
+                <span className="text-[10px] opacity-60">({tasksBySection.archived.length})</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Kanban Board */}
+        <main className="flex-1 overflow-hidden">
+          <div className="h-full flex">
+            {/* Kanban Columns */}
+            <div className="flex-1 flex gap-3 p-4 overflow-x-auto kanban-scroll">
               {SECTIONS.map((section) => (
-                <TaskSection
+                <KanbanColumn
                   key={section.id}
                   section={section}
                   sectionTasks={tasksBySection[section.id]}
-                  isCollapsed={collapsedSections.has(section.id)}
                   expandedTask={expandedTask}
                   activeId={activeId}
-                  onToggleSection={toggleSection}
                   onToggleExpand={handleToggleExpand}
                   onToggleComplete={handleToggleComplete}
                   onDelete={handleDelete}
@@ -433,17 +415,13 @@ function TodoApp() {
                   onArchive={handleArchive}
                 />
               ))}
-            </div>
-
-            {/* Long Term Section */}
-            <div className="mt-8">
-              <TaskSection
+              
+              {/* Long Term Column */}
+              <KanbanColumn
                 section={LONG_TERM_SECTION}
                 sectionTasks={tasksBySection.long_term}
-                isCollapsed={collapsedSections.has("long_term")}
                 expandedTask={expandedTask}
                 activeId={activeId}
-                onToggleSection={toggleSection}
                 onToggleExpand={handleToggleExpand}
                 onToggleComplete={handleToggleComplete}
                 onDelete={handleDelete}
@@ -455,38 +433,10 @@ function TodoApp() {
               />
             </div>
 
-            {/* Archived Section Toggle */}
-            <div className="mt-10 pt-6 border-t border-[var(--color-border-subtle)]">
-              <div className="flex items-center gap-4 flex-wrap">
-                <button
-                  onClick={() => setShowArchived(!showArchived)}
-                  className="flex items-center gap-2.5 px-4 py-2.5 rounded-xl text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-all duration-200 group"
-                >
-                  <Archive size={18} className="group-hover:scale-110 transition-transform" />
-                  <span className="text-body font-medium">
-                    {showArchived ? "Hide Archived" : "Show Archived"}
-                  </span>
-                  <span className="text-caption bg-[var(--color-bg-active)] px-2 py-0.5 rounded-full">
-                    {tasksBySection.archived.length}
-                  </span>
-                </button>
-
-                {completedNotArchivedCount > 0 && (
-                  <button
-                    onClick={handleArchiveAllCompleted}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--color-bg-card)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] hover:border-[var(--color-primary)]/50 transition-all duration-200 text-body group shadow-sm"
-                  >
-                    <Archive size={16} className="group-hover:scale-110 transition-transform" />
-                    <span>Archive All Done</span>
-                    <span className="bg-[var(--color-success)] text-white text-caption px-2 py-0.5 rounded-full font-medium">
-                      {completedNotArchivedCount}
-                    </span>
-                  </button>
-                )}
-              </div>
-
-              {showArchived && (
-                <div className="mt-4">
+            {/* Archived Panel - Slide out */}
+            {showArchived && (
+              <div className="w-80 flex-shrink-0 border-l border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]/50 overflow-y-auto animate-slideInRight">
+                <div className="p-4">
                   <ArchivedSection
                     tasks={tasksBySection.archived}
                     expandedTask={expandedTask}
@@ -498,10 +448,10 @@ function TodoApp() {
                     onTitleChange={handleTitleChange}
                   />
                 </div>
-              )}
-            </div>
-          </main>
-        </div>
+              </div>
+            )}
+          </div>
+        </main>
       </div>
 
       {/* Drag Overlay - renders floating preview with spring animation */}
@@ -530,38 +480,332 @@ function TodoApp() {
 const DragPreview = memo(function DragPreview({ task }: { task: Task }) {
   return (
     <div
-      className="drag-preview rounded-xl bg-[var(--color-bg-card)] p-4"
+      className="drag-preview rounded-lg bg-[var(--color-bg-card)] p-3"
       style={{
-        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25), 0 0 0 1px var(--color-primary), 0 0 20px rgba(196, 101, 74, 0.15)',
-        transform: 'rotate(1.5deg) scale(1.03)',
-        width: '100%',
-        maxWidth: '480px',
-        backdropFilter: 'blur(8px)',
+        boxShadow: '0 20px 40px -12px rgba(0,0,0,0.25), 0 0 0 1px var(--color-primary)',
+        transform: 'rotate(1deg) scale(1.02)',
+        width: '240px',
       }}
     >
-      <div className="flex items-center gap-3">
-        <div className="text-[var(--color-primary)] animate-pulse">
-          <GripVertical size={18} />
+      <div className="flex items-center gap-2">
+        <div className="text-[var(--color-primary)]">
+          <GripVertical size={14} />
         </div>
         <div
-          className={`flex h-5 w-5 items-center justify-center rounded-md border-2 transition-all ${
+          className={`flex h-4 w-4 items-center justify-center rounded border-2 ${
             task.isCompleted
               ? "border-[var(--color-success)] bg-[var(--color-success)]"
-              : "border-[var(--color-primary)] bg-[var(--color-primary-subtle)]"
+              : "border-[var(--color-primary)]"
           }`}
         >
-          {task.isCompleted && <Check size={14} className="text-white" strokeWidth={3} />}
+          {task.isCompleted && <Check size={10} className="text-white" strokeWidth={3} />}
         </div>
-        <span
-          className={`flex-1 text-body font-semibold ${
-            task.isCompleted
-              ? "text-[var(--color-text-muted)] line-through"
-              : "text-[var(--color-text-primary)]"
-          }`}
-        >
+        <span className="flex-1 text-caption font-medium text-[var(--color-text-primary)] truncate">
           {task.title}
         </span>
       </div>
+    </div>
+  );
+});
+
+// Kanban Column Component - Compact horizontal layout
+interface KanbanColumnProps {
+  section: { id: TaskStatus; label: string };
+  sectionTasks: Task[];
+  expandedTask: string | null;
+  activeId: string | null;
+  onToggleExpand: (taskId: string) => void;
+  onToggleComplete: (taskId: string) => void;
+  onDelete: (taskId: string) => void;
+  onStatusChange: (taskId: string, status: TaskStatus) => void;
+  onDescriptionChange: (taskId: string, description: string) => void;
+  onTitleChange: (taskId: string, title: string) => void;
+  onArchive: (taskId: string) => void;
+  isLongTerm?: boolean;
+}
+
+const KanbanColumn = memo(function KanbanColumn({
+  section,
+  sectionTasks,
+  expandedTask,
+  activeId,
+  onToggleExpand,
+  onToggleComplete,
+  onDelete,
+  onStatusChange,
+  onDescriptionChange,
+  onTitleChange,
+  onArchive,
+  isLongTerm,
+}: KanbanColumnProps) {
+  const sectionDropId = getSectionDropId(section.id);
+  const { isOver, setNodeRef } = useDroppable({ id: sectionDropId });
+
+  const completedCount = useMemo(() => 
+    sectionTasks.filter((t) => t.isCompleted).length,
+    [sectionTasks]
+  );
+
+  const isDragging = activeId !== null;
+  const accentColor = sectionAccentColors[section.id];
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`kanban-column flex-shrink-0 w-64 flex flex-col rounded-xl border transition-all duration-200 ${
+        isOver 
+          ? "border-[var(--color-primary)] bg-[var(--color-primary-subtle)]/50 ring-2 ring-[var(--color-primary)]/20" 
+          : isDragging 
+            ? "border-dashed border-[var(--color-primary)]/30 bg-[var(--color-bg-card)]" 
+            : "border-[var(--color-border-subtle)] bg-[var(--color-bg-card)]"
+      } ${isLongTerm ? "border-dashed w-56" : ""}`}
+    >
+      {/* Column Header */}
+      <div className="flex-shrink-0 px-3 py-2.5 border-b border-[var(--color-border-subtle)]">
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-2 h-2 rounded-full flex-shrink-0"
+            style={{ backgroundColor: accentColor }}
+          />
+          <h3 className="text-caption font-semibold text-[var(--color-text-primary)] uppercase tracking-wide flex-1">
+            {section.label}
+          </h3>
+          <span className="text-[11px] text-[var(--color-text-muted)] tabular-nums bg-[var(--color-bg-hover)] px-1.5 py-0.5 rounded">
+            {completedCount}/{sectionTasks.length}
+          </span>
+        </div>
+        {/* Mini progress bar */}
+        {sectionTasks.length > 0 && (
+          <div className="mt-2 h-1 bg-[var(--color-bg-active)] rounded-full overflow-hidden">
+            <div 
+              className="h-full rounded-full transition-all duration-300"
+              style={{ 
+                width: `${sectionTasks.length > 0 ? (completedCount / sectionTasks.length) * 100 : 0}%`,
+                backgroundColor: completedCount === sectionTasks.length ? 'var(--color-success)' : accentColor,
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Scrollable Task List */}
+      <div className="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-[100px]">
+        {sectionTasks.length === 0 ? (
+          <div className={`flex items-center justify-center h-20 rounded-lg border border-dashed transition-all ${
+            isOver 
+              ? "border-[var(--color-primary)] bg-[var(--color-primary-subtle)]/30" 
+              : "border-[var(--color-border-subtle)]"
+          }`}>
+            <p className={`text-caption ${
+              isOver ? "text-[var(--color-primary)] font-medium" : "text-[var(--color-text-muted)]"
+            }`}>
+              {isOver ? "Drop here" : isLongTerm ? "No items" : "Empty"}
+            </p>
+          </div>
+        ) : (
+          sectionTasks.map((task) => (
+            <CompactTaskItem
+              key={task._id}
+              task={task}
+              isExpanded={expandedTask === task._id}
+              onToggleExpand={() => onToggleExpand(task._id)}
+              onToggleComplete={() => onToggleComplete(task._id)}
+              onDelete={() => onDelete(task._id)}
+              onStatusChange={(status) => onStatusChange(task._id, status)}
+              onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
+              onTitleChange={(title) => onTitleChange(task._id, title)}
+              onArchive={() => onArchive(task._id)}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+});
+
+// Compact Task Item for Kanban columns
+const CompactTaskItem = memo(function CompactTaskItem({
+  task,
+  isExpanded,
+  onToggleExpand,
+  onToggleComplete,
+  onDelete,
+  onStatusChange,
+  onDescriptionChange,
+  onTitleChange,
+  onArchive,
+}: {
+  task: Task;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onToggleComplete: () => void;
+  onDelete: () => void;
+  onStatusChange: (status: TaskStatus) => void;
+  onDescriptionChange: (description: string) => void;
+  onTitleChange: (title: string) => void;
+  onArchive: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task._id,
+  });
+  const style = useMemo(() => ({
+    transform: CSS.Transform.toString(transform),
+  }), [transform]);
+  
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description || "");
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  useEffect(() => {
+    setEditedTitle(task.title);
+  }, [task.title]);
+
+  useEffect(() => {
+    setDescription(task.description || "");
+  }, [task.description]);
+
+  const handleTitleSave = useCallback(() => {
+    const trimmed = editedTitle.trim();
+    if (trimmed && trimmed !== task.title) {
+      onTitleChange(trimmed);
+    } else {
+      setEditedTitle(task.title);
+    }
+    setIsEditingTitle(false);
+  }, [editedTitle, task.title, onTitleChange]);
+
+  const handleTitleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleTitleSave();
+    else if (e.key === "Escape") {
+      setEditedTitle(task.title);
+      setIsEditingTitle(false);
+    }
+  }, [handleTitleSave, task.title]);
+
+  const handleDescriptionBlur = useCallback(() => {
+    if (description !== (task.description || "")) {
+      onDescriptionChange(description);
+    }
+  }, [description, task.description, onDescriptionChange]);
+
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="rounded-lg border border-dashed border-[var(--color-primary)]/30 bg-[var(--color-primary-subtle)]/30 p-2 h-10"
+      />
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`compact-task group rounded-lg border p-2 transition-all duration-150 ${
+        task.isCompleted 
+          ? "bg-[var(--color-bg-hover)]/50 border-transparent opacity-60" 
+          : "bg-[var(--color-bg-card)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 hover:shadow-sm"
+      }`}
+    >
+      <div className="flex items-start gap-2">
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="mt-0.5 opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-grab active:cursor-grabbing transition-opacity"
+        >
+          <GripVertical size={12} />
+        </button>
+        
+        {/* Checkbox */}
+        <button
+          onClick={onToggleComplete}
+          className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-all ${
+            task.isCompleted
+              ? "border-[var(--color-success)] bg-[var(--color-success)]"
+              : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
+          }`}
+        >
+          {task.isCompleted && <Check size={10} className="text-white" strokeWidth={3} />}
+        </button>
+
+        {/* Title */}
+        <div className="flex-1 min-w-0">
+          {isEditingTitle ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={editedTitle}
+              onChange={(e) => setEditedTitle(e.target.value)}
+              onBlur={handleTitleSave}
+              onKeyDown={handleTitleKeyDown}
+              className="w-full bg-transparent border-none outline-none text-caption text-[var(--color-text-primary)]"
+            />
+          ) : (
+            <button
+              onClick={onToggleExpand}
+              onDoubleClick={() => setIsEditingTitle(true)}
+              className={`w-full text-left text-caption leading-tight ${
+                task.isCompleted
+                  ? "text-[var(--color-text-muted)] line-through"
+                  : "text-[var(--color-text-primary)]"
+              }`}
+            >
+              {task.title}
+            </button>
+          )}
+        </div>
+
+        {/* Quick actions */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+          {task.isCompleted && (
+            <button
+              onClick={onArchive}
+              className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary-subtle)]"
+            >
+              <Archive size={12} />
+            </button>
+          )}
+          <button
+            onClick={onDelete}
+            className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-urgent)] hover:bg-[var(--color-urgent-subtle)]"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded content */}
+      {isExpanded && (
+        <div className="mt-2 pl-6 space-y-2 animate-slideDown">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleDescriptionBlur}
+            placeholder="Add notes..."
+            className="w-full text-[11px] bg-[var(--color-bg-hover)] border border-[var(--color-border-subtle)] rounded p-1.5 resize-none focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)]/20"
+            rows={2}
+          />
+          <select
+            value={task.status}
+            onChange={(e) => onStatusChange(e.target.value as TaskStatus)}
+            className="w-full text-[11px] bg-[var(--color-bg-hover)] border border-[var(--color-border-subtle)] rounded p-1.5 cursor-pointer"
+          >
+            {ALL_SECTIONS.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
+        </div>
+      )}
     </div>
   );
 });
