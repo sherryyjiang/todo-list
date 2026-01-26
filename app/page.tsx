@@ -65,6 +65,7 @@ function TodoApp() {
   const updateTitle = useMutation(api.tasks.updateTitle);
   const removeTask = useMutation(api.tasks.remove);
   const archiveTask = useMutation(api.tasks.archive);
+  const archiveAllCompleted = useMutation(api.tasks.archiveAllCompleted);
   const unarchiveTask = useMutation(api.tasks.unarchive);
 
   const [newTaskTitle, setNewTaskTitle] = useState("");
@@ -153,6 +154,10 @@ function TodoApp() {
     archiveTask({ id: taskId as Task["_id"] });
   }, [archiveTask]);
 
+  const handleArchiveAllCompleted = useCallback(() => {
+    archiveAllCompleted({});
+  }, [archiveAllCompleted]);
+
   const handleUnarchive = useCallback((taskId: string, status: ActiveTaskStatus) => {
     unarchiveTask({ id: taskId as Task["_id"], status });
   }, [unarchiveTask]);
@@ -196,6 +201,11 @@ function TodoApp() {
       map[task.status].push(task);
     });
     return map;
+  }, [filteredTasks]);
+
+  // Count completed tasks that are not archived (for the "Archive All Done" button)
+  const completedNotArchivedCount = useMemo(() => {
+    return filteredTasks?.filter((task) => task.isCompleted && task.status !== "archived").length ?? 0;
   }, [filteredTasks]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -316,18 +326,30 @@ function TodoApp() {
 
             {/* Archived Section Toggle */}
             <div className="mt-8 border-t border-[var(--color-border)] pt-6">
-              <button
-                onClick={() => setShowArchived(!showArchived)}
-                className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
-              >
-                <Archive size={18} />
-                <span className="text-body">
-                  {showArchived ? "Hide Archived" : "Show Archived"}
-                </span>
-                <span className="text-caption">
-                  ({tasksBySection.archived.length})
-                </span>
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setShowArchived(!showArchived)}
+                  className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] transition-colors"
+                >
+                  <Archive size={18} />
+                  <span className="text-body">
+                    {showArchived ? "Hide Archived" : "Show Archived"}
+                  </span>
+                  <span className="text-caption">
+                    ({tasksBySection.archived.length})
+                  </span>
+                </button>
+
+                {completedNotArchivedCount > 0 && (
+                  <button
+                    onClick={handleArchiveAllCompleted}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-active)] transition-colors text-body"
+                  >
+                    <Archive size={16} />
+                    Archive All Done ({completedNotArchivedCount})
+                  </button>
+                )}
+              </div>
 
               {showArchived && (
                 <div className="mt-4">

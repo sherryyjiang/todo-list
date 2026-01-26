@@ -100,6 +100,24 @@ export const archive = mutation({
   },
 });
 
+export const archiveAllCompleted = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const tasks = await ctx.db.query("tasks").collect();
+    const completedTasks = tasks.filter(
+      (task) => task.isCompleted && task.status !== "archived"
+    );
+
+    await Promise.all(
+      completedTasks.map((task) =>
+        ctx.db.patch(task._id, { status: "archived" })
+      )
+    );
+
+    return completedTasks.length;
+  },
+});
+
 export const unarchive = mutation({
   args: {
     id: v.id("tasks"),
