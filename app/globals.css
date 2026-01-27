@@ -531,6 +531,122 @@
     animation: celebrate 0.5s ease-out;
   }
 
+  /* Enhanced celebration with confetti burst */
+  @keyframes celebrateBurst {
+    0% {
+      transform: scale(1);
+      background-color: var(--color-bg-card);
+    }
+    15% {
+      transform: scale(1.03);
+      background-color: var(--color-success);
+      box-shadow: 0 0 0 6px rgba(93, 157, 93, 0.4), 0 0 30px rgba(93, 157, 93, 0.3);
+    }
+    30% {
+      transform: scale(1.01);
+      background-color: var(--color-bg-card);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: none;
+    }
+  }
+
+  .animate-celebrateBurst {
+    animation: celebrateBurst 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Confetti particles container */
+  .confetti-container {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    border-radius: inherit;
+  }
+
+  /* Individual confetti particle */
+  @keyframes confettiFall {
+    0% {
+      opacity: 1;
+      transform: translateY(0) rotate(0deg) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(60px) rotate(720deg) scale(0);
+    }
+  }
+
+  @keyframes confettiPop {
+    0% {
+      opacity: 0;
+      transform: scale(0) translateY(0);
+    }
+    20% {
+      opacity: 1;
+      transform: scale(1.2) translateY(-10px);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.5) translateY(40px);
+    }
+  }
+
+  .confetti-particle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    animation: confettiPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  .confetti-particle:nth-child(1) { left: 20%; top: 50%; background: #FFD700; animation-delay: 0ms; }
+  .confetti-particle:nth-child(2) { left: 40%; top: 30%; background: #FF6B6B; animation-delay: 50ms; }
+  .confetti-particle:nth-child(3) { left: 60%; top: 50%; background: #4ECDC4; animation-delay: 100ms; }
+  .confetti-particle:nth-child(4) { left: 80%; top: 40%; background: #95E1D3; animation-delay: 75ms; }
+  .confetti-particle:nth-child(5) { left: 30%; top: 60%; background: #DDA0DD; animation-delay: 125ms; }
+  .confetti-particle:nth-child(6) { left: 70%; top: 70%; background: #98D8C8; animation-delay: 25ms; }
+
+  /* Success message popup */
+  @keyframes successPopup {
+    0% {
+      opacity: 0;
+      transform: translateY(10px) scale(0.8);
+    }
+    20% {
+      opacity: 1;
+      transform: translateY(-5px) scale(1.1);
+    }
+    40% {
+      transform: translateY(0) scale(1);
+    }
+    80% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-10px) scale(0.9);
+    }
+  }
+
+  .success-message {
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-success);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    animation: successPopup 1.2s ease-out forwards;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(93, 157, 93, 0.4);
+  }
+
   /* Task ghost placeholder pulse */
   .task-ghost {
     animation: ghostPulse 1.5s ease-in-out infinite;

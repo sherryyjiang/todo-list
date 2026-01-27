@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import confetti from "canvas-confetti";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { Task, TaskStatus, TaskCategory, ActiveTaskStatus, SECTIONS, LONG_TERM_SECTION, ALL_SECTIONS, CATEGORIES } from "@/types";
@@ -30,10 +31,101 @@ import {
   closestCenter,
   MeasuringStrategy,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
+import { mergeOrderIds, reorderIds } from "@/lib/task-order";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
+
+// Encouragement messages that rotate randomly
+const ENCOURAGEMENT_MESSAGES = [
+  "Nice work! 🎉",
+  "You got this! 💪",
+  "Amazing! ⭐",
+  "Keep going! 🚀",
+  "Crushed it! 🔥",
+  "Well done! ✨",
+  "Fantastic! 🌟",
+];
+
+// Fire confetti from a specific element
+function fireConfetti(element: HTMLElement | null, isBigWin = false) {
+  if (!element) return;
+
+  const rect = element.getBoundingClientRect();
+  const x = (rect.left + rect.width / 2) / window.innerWidth;
+  const y = (rect.top + rect.height / 2) / window.innerHeight;
+
+  // Check for reduced motion preference
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return;
+  }
+
+  const defaults = {
+    origin: { x, y },
+    disableForReducedMotion: true,
+  };
+
+  if (isBigWin) {
+    // Big celebration - fireworks style burst
+    const count = 200;
+    const fireMultiple = () => {
+      confetti({
+        ...defaults,
+        particleCount: Math.floor(count / 4),
+        angle: 60,
+        spread: 55,
+        startVelocity: 45,
+        colors: ["#FFD700", "#FF6B6B", "#4ECDC4", "#95E1D3", "#DDA0DD"],
+      });
+      confetti({
+        ...defaults,
+        particleCount: Math.floor(count / 4),
+        angle: 120,
+        spread: 55,
+        startVelocity: 45,
+        colors: ["#FFD700", "#FF6B6B", "#4ECDC4", "#95E1D3", "#DDA0DD"],
+      });
+    };
+    fireMultiple();
+    setTimeout(fireMultiple, 150);
+  } else {
+    // Standard celebration - subtle but satisfying
+    // Mix of shapes and emoji-style stars
+    confetti({
+      ...defaults,
+      particleCount: 30,
+      spread: 60,
+      startVelocity: 25,
+      gravity: 0.8,
+      colors: ["#FFD700", "#5D9D5D", "#4ECDC4", "#FF6B6B"],
+      shapes: ["circle", "square"],
+      scalar: 0.8,
+    });
+
+    // Add some star-shaped confetti for extra delight
+    confetti({
+      ...defaults,
+      particleCount: 8,
+      spread: 40,
+      startVelocity: 20,
+      gravity: 0.6,
+      shapes: ["star"],
+      colors: ["#FFD700", "#FFA500"],
+      scalar: 1.2,
+    });
+  }
+}
+
+// Get a random encouragement message
+function getRandomEncouragement(): string {
+  return ENCOURAGEMENT_MESSAGES[Math.floor(Math.random() * ENCOURAGEMENT_MESSAGES.length)];
+}
 
 export default function Home() {
   if (!convexUrl) {
@@ -199,6 +291,38 @@ function TodoApp() {
     });
   }, [tasks, selectedCategory]);
 
+  const baseSectionOrder = useMemo(() => {
+    const next: Record<TaskStatus, string[]> = {
+      today: [],
+      tomorrow: [],
+      this_week: [],
+      next_week: [],
+      backlog: [],
+      long_term: [],
+      archived: [],
+    };
+
+    filteredTasks?.forEach((task) => {
+      next[task.status].push(String(task._id));
+    });
+
+    return next;
+  }, [filteredTasks]);
+
+  const [sectionOrderByStatus, setSectionOrderByStatus] = useState<Record<TaskStatus, string[]>>(
+    () => baseSectionOrder
+  );
+
+  useEffect(() => {
+    setSectionOrderByStatus((prev) => {
+      const merged: Record<TaskStatus, string[]> = { ...baseSectionOrder };
+      (Object.keys(baseSectionOrder) as TaskStatus[]).forEach((status) => {
+        merged[status] = mergeOrderIds(prev[status] ?? [], baseSectionOrder[status]);
+      });
+      return merged;
+    });
+  }, [baseSectionOrder]);
+
   // Memoize tasks by section to avoid filtering on every render
   const tasksBySection = useMemo(() => {
     const map: Record<TaskStatus, Task[]> = {
@@ -210,11 +334,16 @@ function TodoApp() {
       long_term: [],
       archived: [],
     };
-    filteredTasks?.forEach((task) => {
-      map[task.status].push(task);
+
+    (Object.keys(map) as TaskStatus[]).forEach((status) => {
+      const orderedIds = sectionOrderByStatus[status] ?? [];
+      map[status] = orderedIds
+        .map((id) => taskById.get(id))
+        .filter((task): task is Task => Boolean(task));
     });
+
     return map;
-  }, [filteredTasks]);
+  }, [sectionOrderByStatus, taskById]);
 
   // Count completed tasks that are not archived (for the "Archive All Done" button)
   const completedNotArchivedCount = useMemo(() => {
@@ -234,8 +363,20 @@ function TodoApp() {
     const activeTask = taskById.get(String(active.id));
     if (!activeTask) return;
 
-    const nextStatus = getStatusFromOver(over.id, taskById);
-    if (!nextStatus || nextStatus === activeTask.status) return;
+    const overKey = String(over.id);
+    const nextStatus = getStatusFromOver(overKey, taskById);
+    if (!nextStatus) return;
+
+    if (nextStatus === activeTask.status) {
+      if (overKey.startsWith("section-")) return;
+      setSectionOrderByStatus((prev) => {
+        const current = prev[nextStatus] ?? [];
+        const next = reorderIds(current, String(active.id), overKey);
+        if (next === current) return prev;
+        return { ...prev, [nextStatus]: next };
+      });
+      return;
+    }
 
     updateStatus({ id: activeTask._id, status: nextStatus });
   }, [taskById, updateStatus]);
@@ -545,6 +686,7 @@ const KanbanColumn = memo(function KanbanColumn({
     sectionTasks.filter((t) => t.isCompleted).length,
     [sectionTasks]
   );
+  const sectionTaskIds = useMemo(() => sectionTasks.map((task) => task._id), [sectionTasks]);
 
   const isDragging = activeId !== null;
   const accentColor = sectionAccentColors[section.id];
@@ -603,20 +745,22 @@ const KanbanColumn = memo(function KanbanColumn({
             </p>
           </div>
         ) : (
-          sectionTasks.map((task) => (
-            <CompactTaskItem
-              key={task._id}
-              task={task}
-              isExpanded={expandedTask === task._id}
-              onToggleExpand={() => onToggleExpand(task._id)}
-              onToggleComplete={() => onToggleComplete(task._id)}
-              onDelete={() => onDelete(task._id)}
-              onStatusChange={(status) => onStatusChange(task._id, status)}
-              onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
-              onTitleChange={(title) => onTitleChange(task._id, title)}
-              onArchive={() => onArchive(task._id)}
-            />
-          ))
+          <SortableContext items={sectionTaskIds} strategy={verticalListSortingStrategy}>
+            {sectionTasks.map((task) => (
+              <CompactTaskItem
+                key={task._id}
+                task={task}
+                isExpanded={expandedTask === task._id}
+                onToggleExpand={() => onToggleExpand(task._id)}
+                onToggleComplete={() => onToggleComplete(task._id)}
+                onDelete={() => onDelete(task._id)}
+                onStatusChange={(status) => onStatusChange(task._id, status)}
+                onDescriptionChange={(desc) => onDescriptionChange(task._id, desc)}
+                onTitleChange={(title) => onTitleChange(task._id, title)}
+                onArchive={() => onArchive(task._id)}
+              />
+            ))}
+          </SortableContext>
         )}
       </div>
     </div>
@@ -645,17 +789,54 @@ const CompactTaskItem = memo(function CompactTaskItem({
   onTitleChange: (title: string) => void;
   onArchive: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: task._id,
   });
   const style = useMemo(() => ({
     transform: CSS.Transform.toString(transform),
-  }), [transform]);
-  
+    transition,
+  }), [transform, transition]);
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || "");
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [encouragementMessage, setEncouragementMessage] = useState("");
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const checkboxRef = useRef<HTMLButtonElement>(null);
+
+  // Track completion count for "big win" celebrations
+  const completionCountRef = useRef(0);
+
+  // Celebration animation handler with canvas-confetti
+  const handleToggleCompleteWithCelebration = useCallback(() => {
+    if (!task.isCompleted) {
+      // Increment completion count
+      completionCountRef.current += 1;
+
+      // Every 5th completion gets a big celebration (variable ratio reinforcement)
+      const isBigWin = completionCountRef.current % 5 === 0 || Math.random() < 0.15;
+
+      // Fire confetti from checkbox position
+      fireConfetti(checkboxRef.current, isBigWin);
+
+      // Set random encouragement message
+      setEncouragementMessage(getRandomEncouragement());
+      setShowCelebration(true);
+
+      // Hide after animation
+      setTimeout(() => setShowCelebration(false), isBigWin ? 2000 : 1500);
+    }
+    onToggleComplete();
+  }, [task.isCompleted, onToggleComplete]);
 
   useEffect(() => {
     if (isEditingTitle && titleInputRef.current) {
@@ -710,32 +891,40 @@ const CompactTaskItem = memo(function CompactTaskItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={`compact-task group rounded-lg border p-2 transition-all duration-150 ${
-        task.isCompleted 
-          ? "bg-[var(--color-bg-hover)]/50 border-transparent opacity-60" 
+      className={`compact-task group rounded-lg border p-2 transition-all duration-150 relative ${
+        task.isCompleted
+          ? "bg-[var(--color-bg-hover)]/50 border-transparent opacity-60"
           : "bg-[var(--color-bg-card)] border-[var(--color-border-subtle)] hover:border-[var(--color-primary)]/30 hover:shadow-sm"
-      }`}
+      } ${showCelebration ? "animate-celebrateBurst" : ""}`}
     >
+      {/* Celebration message */}
+      {showCelebration && (
+        <div className="success-message">{encouragementMessage}</div>
+      )}
+
       <div className="flex items-start gap-2">
         {/* Drag handle */}
         <button
+          ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
           className="mt-0.5 opacity-0 group-hover:opacity-100 text-[var(--color-text-muted)] hover:text-[var(--color-primary)] cursor-grab active:cursor-grabbing transition-opacity"
+          type="button"
         >
           <GripVertical size={12} />
         </button>
-        
+
         {/* Checkbox */}
         <button
-          onClick={onToggleComplete}
+          ref={checkboxRef}
+          onClick={handleToggleCompleteWithCelebration}
           className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border-2 transition-all ${
             task.isCompleted
               ? "border-[var(--color-success)] bg-[var(--color-success)]"
               : "border-[var(--color-border)] hover:border-[var(--color-primary)]"
           }`}
         >
-          {task.isCompleted && <Check size={10} className="text-white" strokeWidth={3} />}
+          {task.isCompleted && <Check size={10} className="text-white animate-checkPop" strokeWidth={3} />}
         </button>
 
         {/* Title */}
