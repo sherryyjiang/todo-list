@@ -5,7 +5,7 @@ export type TaskStatus = "today" | "tomorrow" | "this_week" | "next_week" | "bac
 // Status types that can be used as destinations (excludes archived)
 export type ActiveTaskStatus = Exclude<TaskStatus, "archived">;
 
-export type TaskCategory = "general" | "coding";
+export type TaskCategory = "general" | "coding" | "health";
 
 export interface Task {
   _id: Id<"tasks">;
@@ -23,6 +23,7 @@ export interface Task {
 export const CATEGORIES: { id: TaskCategory; label: string; icon: string }[] = [
   { id: "general", label: "General", icon: "📋" },
   { id: "coding", label: "Coding Tasks", icon: "💻" },
+  { id: "health", label: "Health", icon: "🏥" },
 ];
 
 // Main sections shown in the primary view

@@ -13,7 +13,7 @@ export const create = mutation({
   args: {
     title: v.string(),
     description: v.optional(v.string()),
-    category: v.optional(v.union(v.literal("general"), v.literal("coding"))),
+    category: v.optional(v.union(v.literal("general"), v.literal("coding"), v.literal("health"))),
   },
   handler: async (ctx, args) => {
     const existingTasks = await ctx.db
@@ -50,7 +50,7 @@ export const createWithStatus = mutation({
       v.literal("backlog"),
       v.literal("long_term")
     ),
-    category: v.optional(v.union(v.literal("general"), v.literal("coding"))),
+    category: v.optional(v.union(v.literal("general"), v.literal("coding"), v.literal("health"))),
   },
   handler: async (ctx, args) => {
     const existingTasks = await ctx.db
@@ -148,7 +148,7 @@ export const updateDescription = mutation({
 export const updateCategory = mutation({
   args: {
     id: v.id("tasks"),
-    category: v.union(v.literal("general"), v.literal("coding")),
+    category: v.union(v.literal("general"), v.literal("coding"), v.literal("health")),
   },
   handler: async (ctx, args) => {
     await ctx.db.patch(args.id, { category: args.category });

@@ -17,7 +17,8 @@ export default defineSchema({
     ),
     category: v.optional(v.union(
       v.literal("general"),
-      v.literal("coding")
+      v.literal("coding"),
+      v.literal("health")
     )),
     isCompleted: v.boolean(),
     order: v.number(),
