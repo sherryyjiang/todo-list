@@ -44,4 +44,45 @@ describe("ImportantLists", () => {
 
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
   });
+
+  test("allows editing an existing person in a list", () => {
+    render(<ImportantLists />);
+
+    fireEvent.click(screen.getByRole("button", { name: /edit item hubert/i }));
+    fireEvent.change(screen.getByRole("textbox", { name: /edit item hubert/i }), {
+      target: { value: "Hubert Chang" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save item hubert/i }));
+
+    expect(screen.getByText("Hubert Chang")).toBeInTheDocument();
+    expect(screen.queryByText("Hubert")).not.toBeInTheDocument();
+  });
+
+  test("allows deleting a person from a list", () => {
+    render(<ImportantLists />);
+
+    fireEvent.click(screen.getByRole("button", { name: /delete item robin guo/i }));
+
+    expect(screen.queryByText("Robin Guo")).not.toBeInTheDocument();
+  });
+
+  test("allows editing a list title", () => {
+    render(<ImportantLists />);
+
+    fireEvent.click(screen.getByRole("button", { name: /edit list title sf list/i }));
+    fireEvent.change(screen.getByLabelText(/edit list title sf list/i), {
+      target: { value: "SF Favorites" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save list title sf list/i }));
+
+    expect(screen.getByRole("heading", { name: /sf favorites/i })).toBeInTheDocument();
+  });
+
+  test("allows deleting a list column", () => {
+    render(<ImportantLists />);
+
+    fireEvent.click(screen.getByRole("button", { name: /delete list sf list/i }));
+
+    expect(screen.queryByRole("heading", { name: /sf list/i })).not.toBeInTheDocument();
+  });
 });

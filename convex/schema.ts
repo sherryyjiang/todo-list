@@ -25,4 +25,13 @@ export default defineSchema({
     createdAt: v.number(),
   }).index("by_status", ["status"])
     .index("by_category", ["category"]),
+  importantLists: defineTable({
+    title: v.string(),
+    createdAt: v.number(),
+  }),
+  importantListItems: defineTable({
+    listId: v.id("importantLists"),
+    label: v.string(),
+    createdAt: v.number(),
+  }).index("by_list", ["listId"]),
 });
