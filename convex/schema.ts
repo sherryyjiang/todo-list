@@ -21,6 +21,7 @@ export default defineSchema({
       v.literal("health")
     )),
     isCompleted: v.boolean(),
+    completedAt: v.optional(v.number()),
     order: v.number(),
     createdAt: v.number(),
   }).index("by_status", ["status"])

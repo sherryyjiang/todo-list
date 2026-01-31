@@ -15,6 +15,7 @@ export interface Task {
   status: TaskStatus;
   category?: TaskCategory;
   isCompleted: boolean;
+  completedAt?: number;
   order: number;
   createdAt: number;
 }

@@ -2,7 +2,7 @@
 
 import type { Task, TaskCategory } from "@/types";
 
-export type ViewMode = "tasks" | "lists";
+export type ViewMode = "tasks" | "lists" | "summary" | "links";
 
 interface ViewTabsProps {
   mode: ViewMode;
@@ -63,6 +63,30 @@ export default function ViewTabs({
       >
         <span>📌</span>
         <span className="hidden sm:inline">Important Lists</span>
+      </button>
+
+      <button
+        onClick={() => onModeChange("summary")}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-body transition-all duration-150 ${
+          mode === "summary"
+            ? "bg-[var(--color-bg-card)] text-[var(--color-text-primary)] shadow-sm font-medium"
+            : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+        }`}
+      >
+        <span>📊</span>
+        <span className="hidden sm:inline">Weekly Summary</span>
+      </button>
+
+      <button
+        onClick={() => onModeChange("links")}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-body transition-all duration-150 ${
+          mode === "links"
+            ? "bg-[var(--color-bg-card)] text-[var(--color-text-primary)] shadow-sm font-medium"
+            : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+        }`}
+      >
+        <span>🔖</span>
+        <span className="hidden sm:inline">Memory Links</span>
       </button>
     </div>
   );

@@ -32,6 +32,7 @@ export const create = mutation({
       status: "backlog",
       category: args.category ?? "general",
       isCompleted: false,
+      completedAt: undefined,
       order: maxOrder + 1,
       createdAt: Date.now(),
     });
@@ -69,6 +70,7 @@ export const createWithStatus = mutation({
       status: args.status,
       category: args.category ?? "general",
       isCompleted: false,
+      completedAt: undefined,
       order: maxOrder + 1,
       createdAt: Date.now(),
     });
@@ -170,7 +172,11 @@ export const toggleComplete = mutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.id);
     if (!task) throw new Error("Task not found");
-    await ctx.db.patch(args.id, { isCompleted: !task.isCompleted });
+    const nextCompleted = !task.isCompleted;
+    await ctx.db.patch(args.id, {
+      isCompleted: nextCompleted,
+      completedAt: nextCompleted ? Date.now() : task.completedAt,
+    });
   },
 });
 

@@ -528,6 +528,7 @@ function TodoApp() {
 
         <MainContent
           mode={viewMode}
+          tasks={tasks}
           tasksContent={(
             <div className="h-full flex">
               {/* Kanban Columns */}

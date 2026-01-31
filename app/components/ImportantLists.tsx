@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 interface ImportantListItem {
   id: string;
@@ -42,8 +42,52 @@ const INITIAL_LISTS: ImportantList[] = [
   },
 ];
 
+const STORAGE_KEY = "importantLists:v1";
+
+function isStoredList(value: unknown): value is ImportantList {
+  if (!value || typeof value !== "object") return false;
+  const list = value as ImportantList;
+  return (
+    typeof list.id === "string" &&
+    typeof list.title === "string" &&
+    Array.isArray(list.items) &&
+    list.items.every(
+      (item) =>
+        item &&
+        typeof item === "object" &&
+        typeof item.id === "string" &&
+        typeof item.label === "string"
+    )
+  );
+}
+
+function loadListsFromStorage(): ImportantList[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    const lists = parsed.filter(isStoredList);
+    return lists.length > 0 ? lists : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveListsToStorage(lists: ImportantList[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lists));
+  } catch {
+    // Ignore storage errors (quota, private mode)
+  }
+}
+
 export default function ImportantLists() {
-  const [lists, setLists] = useState<ImportantList[]>(INITIAL_LISTS);
+  const [lists, setLists] = useState<ImportantList[]>(
+    () => loadListsFromStorage() ?? INITIAL_LISTS
+  );
   const [newListTitle, setNewListTitle] = useState("");
   const [newItemByList, setNewItemByList] = useState<Record<string, string>>({});
   const [editingListId, setEditingListId] = useState<string | null>(null);
@@ -53,6 +97,10 @@ export default function ImportantLists() {
     itemId: string;
   } | null>(null);
   const [editingItemValue, setEditingItemValue] = useState("");
+
+  useEffect(() => {
+    saveListsToStorage(lists);
+  }, [lists]);
 
   const handleAddList = useCallback((event: React.FormEvent) => {
     event.preventDefault();

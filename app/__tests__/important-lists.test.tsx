@@ -2,6 +2,10 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import ImportantLists from "../components/ImportantLists";
 
 describe("ImportantLists", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   test("renders the Important Lists section with the SF List and initial people", () => {
     render(<ImportantLists />);
 
@@ -84,5 +88,22 @@ describe("ImportantLists", () => {
     fireEvent.click(screen.getByRole("button", { name: /delete list sf list/i }));
 
     expect(screen.queryByRole("heading", { name: /sf list/i })).not.toBeInTheDocument();
+  });
+
+  test("persists added people across remounts", () => {
+    const { unmount } = render(<ImportantLists />);
+
+    fireEvent.change(screen.getByLabelText(/item for sf list/i), {
+      target: { value: "Jordan Lee" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /add item to sf list/i }));
+
+    expect(screen.getByText("Jordan Lee")).toBeInTheDocument();
+
+    unmount();
+
+    render(<ImportantLists />);
+
+    expect(screen.getByText("Jordan Lee")).toBeInTheDocument();
   });
 });
